@@ -350,15 +350,14 @@ class VisualDiscriminationInterface(QWidget):
         title.setDisabled(True)
         menu.addAction(title)
 
-        menu.addSeparator()
         action_map: dict[QtGui.QAction | None, UserAction] = {}
 
+        menu.addSeparator()
         # rooms
         # ----------------
         title = QtGui.QAction("Rooms", menu)
         title.setDisabled(True)
         menu.addAction(title)
-        menu.addSeparator()
 
         # rooms re-initialisation
         menu_action = QtGui.QAction("re-initialise all hardware", menu)
@@ -368,6 +367,7 @@ class VisualDiscriminationInterface(QWidget):
         menu.addAction(menu_action)
 
         # gate scale setting
+        nb_rooms = len(self.experiment.get_all_rooms())
         for room in self.experiment.get_all_rooms():
             gate = room.gate
             room_menu = QMenu(str(room), menu)
@@ -408,14 +408,17 @@ class VisualDiscriminationInterface(QWidget):
             action_map[display_action] = user_action
             room_menu.addAction(display_action)
 
-            menu.addMenu(room_menu)
+            if nb_rooms > 1:
+                menu.addMenu(room_menu)
+            else:
+                menu.addAction(room_menu.menuAction())
 
+        menu.addSeparator()
         # animals
         # ----------------
         title = QtGui.QAction("Animals", menu)
         title.setDisabled(True)
         menu.addAction(title)
-        menu.addSeparator()
 
         for rfid in self.experiment.get_all_rfid():
             rfid_menu = QMenu(rfid, menu)
