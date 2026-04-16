@@ -168,8 +168,8 @@ class VisualDiscriminationInterface(QWidget):
         Parameters
         ----------
         house_size : tuple[int, int], optional
-            Define the number of blocks that compose the house. They will be
-            implemented along the x and y axes. By default (1, 1)
+            Define the number of blocks that compose the house (width, height).
+            By default (1, 1).
         """
         self.house = WBlock(
             0, 0, self
@@ -348,6 +348,7 @@ class VisualDiscriminationInterface(QWidget):
 
         title = QtGui.QAction(self.name, menu)
         title.setDisabled(True)
+        menu.addAction(title)
 
         menu.addSeparator()
         action_map: dict[QtGui.QAction | None, UserAction] = {}
@@ -356,6 +357,7 @@ class VisualDiscriminationInterface(QWidget):
         # ----------------
         title = QtGui.QAction("Rooms", menu)
         title.setDisabled(True)
+        menu.addAction(title)
         menu.addSeparator()
 
         # rooms re-initialisation
@@ -363,6 +365,7 @@ class VisualDiscriminationInterface(QWidget):
         user_action = UserAction(self.experiment.init_experiment)
         user_action.log = "re-init all hardware"
         action_map[menu_action] = user_action
+        menu.addAction(menu_action)
 
         # gate scale setting
         for room in self.experiment.get_all_rooms():
@@ -375,7 +378,7 @@ class VisualDiscriminationInterface(QWidget):
             weight_range = range(
                 gate.mouseAverageWeight - power_ten,
                 gate.mouseAverageWeight + power_ten,
-                power_ten / 10,
+                power_ten // 10,
             )
 
             for weight in weight_range:
@@ -386,23 +389,32 @@ class VisualDiscriminationInterface(QWidget):
                 if weight == gate.mouseAverageWeight:
                     weight_action.setCheckable(True)
                     weight_action.setChecked(True)
+                weight_menu.addAction(weight_action)
+
+            room_menu.addMenu(weight_menu)
 
             touch_action = QtGui.QAction("correct touch", room_menu)
             user_action = UserAction(room.simulate_ts_event, True)
             action_map[touch_action] = user_action
+            room_menu.addAction(touch_action)
 
             touch_action = QtGui.QAction("wrong touch", room_menu)
             user_action = UserAction(room.simulate_ts_event, False)
             action_map[touch_action] = user_action
+            room_menu.addAction(touch_action)
 
             display_action = QtGui.QAction("random display", room_menu)
             user_action = UserAction(room.ts_random_display, TSImage.LIGHT)
             action_map[display_action] = user_action
+            room_menu.addAction(display_action)
+
+            menu.addMenu(room_menu)
 
         # animals
         # ----------------
         title = QtGui.QAction("Animals", menu)
         title.setDisabled(True)
+        menu.addAction(title)
         menu.addSeparator()
 
         for rfid in self.experiment.get_all_rfid():
@@ -415,6 +427,7 @@ class VisualDiscriminationInterface(QWidget):
                     self.experiment.animals[rfid].proceed_to_next_phase
                 )
                 action_map[menu_action] = user_action
+                rfid_menu.addAction(menu_action)
 
             # modify touchscreen image
             ts_image = self.experiment.get_ts_image(rfid)
@@ -428,6 +441,10 @@ class VisualDiscriminationInterface(QWidget):
                 if ts_image == img:
                     menu_action.setCheckable(True)
                     menu_action.setChecked(True)
+                ts_img_menu.addAction(menu_action)
+
+            rfid_menu.addMenu(ts_img_menu)
+            menu.addMenu(rfid_menu)
 
         # menu execution
         # ----------------
@@ -449,7 +466,7 @@ class VisualDiscriminationInterface(QWidget):
             orientation="horizontal",
         )
 
-        self.init_house()
+        self.init_house(house_size=(2, 1))
         self.init_rooms()
 
         self.resize(1000, 400)
