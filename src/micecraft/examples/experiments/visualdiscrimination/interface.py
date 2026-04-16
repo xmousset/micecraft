@@ -72,10 +72,12 @@ class VisualRoom:
 
     def __init__(
         self,
+        parent: QWidget | None,
         name: str,
         gate_pos: tuple[int, int],
         orientation: Literal["horizontal", "vertical"] = "horizontal",
     ) -> None:
+        self.parent = parent
         self.name: str = name
         if orientation == "horizontal":
             angle = 0
@@ -84,15 +86,26 @@ class VisualRoom:
             angle = 90
             room_shift = (0, 1)
 
-        self.gate: WGate = WGate(gate_pos[0], gate_pos[1], self)
+        self.gate: WGate = WGate(
+            gate_pos[0],
+            gate_pos[1],
+            self.parent,
+        )
         self.gate.setName(name + "_gate")
         self.gate.setAngle(angle)
 
         self.block = WBlock(
-            room_shift[0] + gate_pos[0], room_shift[1] + gate_pos[1], self
+            room_shift[0] + gate_pos[0],
+            room_shift[1] + gate_pos[1],
+            self.parent,
         )
         self.block.setName(name + "_block")
-        self.wp: WPump = WPump(1 + gate_pos[0] + 0.4, gate_pos[1] - 0.4, self)
+
+        self.wp: WPump = WPump(
+            1 + gate_pos[0] + 0.4,
+            gate_pos[1] - 0.4,
+            self.parent,
+        )
         self.wp.setName(name + "_pump")
 
         VisualRoom.ALL.append(self)
@@ -430,6 +443,7 @@ class VisualDiscriminationInterface(QWidget):
 
         romm_names = [room.name for room in self.experiment.get_all_rooms()]
         VisualRoom(
+            parent=self,
             name=str(romm_names[0]),
             gate_pos=(2, 0),
             orientation="horizontal",
