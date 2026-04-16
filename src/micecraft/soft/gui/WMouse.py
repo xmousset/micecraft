@@ -55,11 +55,11 @@ class WMouse(QtWidgets.QWidget):
             txt="No RFID"
         if self.description !="":
             txt+="\n"+self.description
-        painter.drawText( QRect( 0,0,125,50) , Qt.AlignCenter, txt )
+        painter.drawText( QRect( 0,0,125,50) , Qt.AlignmentFlag.AlignCenter, txt )
 
-        painter.drawText( QRect( 5,5,20,10) , Qt.AlignCenter, str( self.number ) )
+        painter.drawText( QRect( 5,5,20,10) , Qt.AlignmentFlag.AlignCenter, str( self.number ) )
 
-        #painter.drawText( QRect( 0,20,125,50) , Qt.AlignCenter, self.description )
+        #painter.drawText( QRect( 0,20,125,50) , Qt.AlignmentFlag.AlignCenter, self.description )
 
         painter.end()
     

@@ -31,7 +31,7 @@ class WPump(QtWidgets.QWidget):
         '''        
         layout = QtWidgets.QVBoxLayout()
         title = QLabel( "Fed" , objectName="balanceTitle" )
-        title.setAlignment(Qt.AlignCenter)
+        title.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget( title )
         self.balanceWidget = MplCanvas (self, width=5, height=3 )        
         self.balanceWidget.axes.plot([0,1,2,3,4], [10,1,20,3,40])
@@ -127,7 +127,7 @@ class WPump(QtWidgets.QWidget):
         font = QFont('Times', 10)
         font.setBold(True)
         painter.setFont( font )
-        painter.drawText( QRect( 0, 0 , 50,50 ), Qt.AlignCenter, self.name )
+        painter.drawText( QRect( 0, 0 , 50,50 ), Qt.AlignmentFlag.AlignCenter, self.name )
         
         if self.pump != None:
             self.visualDeviceAlarmStatus.draw( painter, self.pump,
