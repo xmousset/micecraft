@@ -31,7 +31,7 @@ from micecraft.soft.gui.WMouse import WMouse
 from micecraft.soft.gui.VisualStorageAlarm import VisualStorageAlarm
 
 from micecraft.examples.experiments.visualdiscrimination.experiment import (
-    TouchScreenExperiment,
+    VisualDiscriminationExperiment,
     TSImage,
 )
 
@@ -98,7 +98,9 @@ class VisualRoom:
         VisualRoom.ALL.append(self)
 
     def bind_to_experiment(
-        self, experiment: TouchScreenExperiment, visual_listener: Callable
+        self,
+        experiment: VisualDiscriminationExperiment,
+        visual_listener: Callable,
     ):
         room = experiment.get_room(name=self.name)
         if room is None:
@@ -114,7 +116,7 @@ class VisualRoom:
         return self.name
 
 
-class VisualTouchScreenExperiment(QWidget):
+class VisualDiscriminationInterface(QWidget):
 
     refresher = QtCore.pyqtSignal()
 
@@ -128,7 +130,7 @@ class VisualTouchScreenExperiment(QWidget):
         self.rooms: list[WBlock] = []
         self.painters: dict[str, QtGui.QPainter]
         self.visualStorageAlarm = None
-        print("hello")
+        print("Starting...")
 
     def on_refresh_data(self):
         self.update()
@@ -424,7 +426,7 @@ class VisualTouchScreenExperiment(QWidget):
 
     def start(self):
         """Initialise the application."""
-        self.experiment = TouchScreenExperiment()
+        self.experiment = VisualDiscriminationExperiment()
 
         romm_names = [room.name for room in self.experiment.get_all_rooms()]
         VisualRoom(
@@ -454,9 +456,9 @@ def excepthook(type_, value, traceback_):
 if __name__ == "__main__":
 
     sys.excepthook = excepthook
-    visualExperiment = VisualTouchScreenExperiment()
-
     app = QApplication([])
+
+    visualExperiment = VisualDiscriminationInterface()
     app.aboutToQuit.connect(visualExperiment.shutdown)
 
     visualExperiment.start()
@@ -464,4 +466,4 @@ if __name__ == "__main__":
 
     sys.exit(app.exec())
 
-    print("ok")
+    print("*** End of program ***")
