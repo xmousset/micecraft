@@ -466,9 +466,10 @@ class Animal:
             for date, result in self.touched_left_dic.items()
         }
 
-        dic["rewards_picked"] = [
-            self.datetime_to_str(date) for date in self.rewards_dic
-        ]
+        dic["rewards_picked"] = {
+            self.datetime_to_str(date): result
+            for date, result in self.rewards_dic.items()
+        }
 
         return dic
 

@@ -205,8 +205,8 @@ class VisualDiscriminationInterface(QWidget):
                         animal_y += y * 200
                         break
         else:
-            animal_x = int(self.animals[-1].x)  # type: ignore
-            animal_y = int(self.animals[-1].y) + 100  # type: ignore
+            animal_x = int(self.animals[-1].x)
+            animal_y = int(self.animals[-1].y) + 100
 
         animal = WMouse(animal_x, animal_y, self)
         animal.number = number
@@ -310,7 +310,11 @@ class VisualDiscriminationInterface(QWidget):
             self.experiment.info.name,
         )
 
-        self.visualStorageAlarm.draw(painter, textRect=QtCore.QRect(625, 0, 50, 50))  # type: ignore
+        if self.visualStorageAlarm is not None:
+            self.visualStorageAlarm.draw(
+                painter,
+                textRect=QtCore.QRect(625, 0, 50, 50),
+            )
 
         self.set_animal_target()
 
