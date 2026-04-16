@@ -23,7 +23,7 @@ import threading
 from typing import Callable, Literal
 
 from PyQt6 import QtCore, QtGui
-from PyQt6.QtWidgets import QAction, QApplication, QMenu, QWidget
+from PyQt6.QtWidgets import QApplication, QMenu, QWidget
 from micecraft.soft.gui.WBlock import WBlock
 from micecraft.devices.gate.gui.WGate import WGate
 from micecraft.devices.waterpump.gui.WPump import WPump
@@ -84,17 +84,15 @@ class VisualRoom:
             angle = 90
             room_shift = (0, 1)
 
-        self.gate: WWGate = WWGate(gate_pos[0], gate_pos[1], self)
+        self.gate: WGate = WGate(gate_pos[0], gate_pos[1], self)
         self.gate.setName(name + "_gate")
         self.gate.setAngle(angle)
 
-        self.block = Block(
+        self.block = WBlock(
             room_shift[0] + gate_pos[0], room_shift[1] + gate_pos[1], self
         )
         self.block.setName(name + "_block")
-        self.wp: WWWPump = WWWPump(
-            1 + gate_pos[0] + 0.4, gate_pos[1] - 0.4, self
-        )
+        self.wp: WPump = WPump(1 + gate_pos[0] + 0.4, gate_pos[1] - 0.4, self)
         self.wp.setName(name + "_pump")
 
         VisualRoom.ALL.append(self)
@@ -125,9 +123,9 @@ class VisualTouchScreenExperiment(QWidget):
 
         self.name = "Visual experiment monitoring"
         self.shutting_down = False
-        self.animals: list[WWMouse2] = []
+        self.animals: list[WMouse] = []
         # self.gates : typing.List[WWGate] = []
-        self.rooms: list[Block] = []
+        self.rooms: list[WBlock] = []
         self.painters: dict[str, QtGui.QPainter]
         self.visualStorageAlarm = None
         print("hello")
@@ -158,7 +156,7 @@ class VisualTouchScreenExperiment(QWidget):
             Define the number of blocks that compose the house. They will be
             implemented along the x and y axes. By default (1, 1)
         """
-        self.house = Block(
+        self.house = WBlock(
             0, 0, self
         )  # x and y are relative to block size (200)
         self.house.setSize(
@@ -195,7 +193,7 @@ class VisualTouchScreenExperiment(QWidget):
             animal_x = int(self.animals[-1].x)  # type: ignore
             animal_y = int(self.animals[-1].y) + 100  # type: ignore
 
-        animal = WWMouse2(animal_x, animal_y, self)
+        animal = WMouse(animal_x, animal_y, self)
         animal.number = number
 
         animal.vpos = {}
@@ -259,7 +257,7 @@ class VisualTouchScreenExperiment(QWidget):
     def get_pen(self) -> QtGui.QPainter:
         """Get the QPainter object with fixed parameters."""
         pen = QtGui.QPainter()
-        pen.setRenderHint(QtGui.QPainter.Antialiasing)
+        pen.setRenderHint(QtGui.QPainter.RenderHint.Antialiasing)
         pen.setPen(QtGui.QPen(QtGui.QColor(50, 50, 50), 2))
 
         font = QtGui.QFont("Console")
@@ -330,23 +328,23 @@ class VisualTouchScreenExperiment(QWidget):
 
     def contextMenuEvent(self, event):  # type: ignore
         """Build the context menu and return (menu, action_map).
-        action_map links each QAction to a UserAction."""
+        action_map links each QtGui.QAction to a UserAction."""
         menu = QMenu(self)
 
-        title = QAction(self.name, menu)
+        title = QtGui.QAction(self.name, menu)
         title.setDisabled(True)
 
         menu.addSeparator()
-        action_map: dict[QAction | None, UserAction] = {}
+        action_map: dict[QtGui.QAction | None, UserAction] = {}
 
         # rooms
         # ----------------
-        title = QAction("Rooms", menu)
+        title = QtGui.QAction("Rooms", menu)
         title.setDisabled(True)
         menu.addSeparator()
 
         # rooms re-initialisation
-        menu_action = QAction("re-initialise all hardware", menu)
+        menu_action = QtGui.QAction("re-initialise all hardware", menu)
         user_action = UserAction(self.experiment.init_experiment)
         user_action.log = "re-init all hardware"
         action_map[menu_action] = user_action
@@ -366,7 +364,7 @@ class VisualTouchScreenExperiment(QWidget):
             )
 
             for weight in weight_range:
-                weight_action = QAction(f"{weight} g", weight_menu)
+                weight_action = QtGui.QAction(f"{weight} g", weight_menu)
                 user_action = UserAction(room.set_animal_weight, weight)
                 user_action.log = "expected weight modified"
                 action_map[weight_action] = user_action
@@ -374,21 +372,21 @@ class VisualTouchScreenExperiment(QWidget):
                     weight_action.setCheckable(True)
                     weight_action.setChecked(True)
 
-            touch_action = QAction("correct touch", room_menu)
+            touch_action = QtGui.QAction("correct touch", room_menu)
             user_action = UserAction(room.simulate_ts_event, True)
             action_map[touch_action] = user_action
 
-            touch_action = QAction("wrong touch", room_menu)
+            touch_action = QtGui.QAction("wrong touch", room_menu)
             user_action = UserAction(room.simulate_ts_event, False)
             action_map[touch_action] = user_action
 
-            display_action = QAction("random display", room_menu)
+            display_action = QtGui.QAction("random display", room_menu)
             user_action = UserAction(room.ts_random_display, TSImage.LIGHT)
             action_map[display_action] = user_action
 
         # animals
         # ----------------
-        title = QAction("Animals", menu)
+        title = QtGui.QAction("Animals", menu)
         title.setDisabled(True)
         menu.addSeparator()
 
@@ -397,7 +395,7 @@ class VisualTouchScreenExperiment(QWidget):
 
             # go to next phase
             if rfid in self.experiment.animals.keys():
-                menu_action = QAction("proceed to next phase", rfid_menu)
+                menu_action = QtGui.QAction("proceed to next phase", rfid_menu)
                 user_action = UserAction(
                     self.experiment.animals[rfid].proceed_to_next_phase
                 )
@@ -407,7 +405,7 @@ class VisualTouchScreenExperiment(QWidget):
             ts_image = self.experiment.get_ts_image(rfid)
             ts_img_menu = QMenu("set TouchScreen image", rfid_menu)
             for img in list(TSImage):
-                menu_action = QAction(img.name, ts_img_menu)
+                menu_action = QtGui.QAction(img.name, ts_img_menu)
                 user_action = UserAction(
                     self.experiment.set_ts_image, rfid, img
                 )
@@ -418,7 +416,7 @@ class VisualTouchScreenExperiment(QWidget):
 
         # menu execution
         # ----------------
-        action = menu.exec_(self.mapToGlobal(event.pos()))
+        action = menu.exec(self.mapToGlobal(event.pos()))
         if action in action_map:
             action_map[action].exec()
         else:
@@ -464,6 +462,6 @@ if __name__ == "__main__":
     visualExperiment.start()
     visualExperiment.show()
 
-    sys.exit(app.exec_())
+    sys.exit(app.exec())
 
     print("ok")

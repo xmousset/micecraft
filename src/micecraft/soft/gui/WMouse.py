@@ -19,7 +19,7 @@ class WMouse(QtWidgets.QWidget):
         
         self.setGeometry( int(self.x), int(self.y), 125, 50 )
         self.name ="block"
-        self.rfid = None
+        self.rfid: str | None = None
         self.description = ""
         self.number = 0
         self.setBackgroundColor( 100, 100, 100 )
