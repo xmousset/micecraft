@@ -268,11 +268,11 @@ class Criteria:
     @classmethod
     def from_repr(cls, repr: str):
         """Initialise a Criteria object from its string representation."""
-        values = list(map(int, repr.split("_")))
+        raw = repr.split("_")
         return cls(
-            min_rewards=values[0],
-            min_trials=values[1],
-            accuracy=(values[2], values[3]),
+            min_rewards=int(raw[0]),
+            min_trials=int(raw[1]),
+            accuracy=(float(raw[2]), int(raw[3])),
         )
 
     def __init__(
