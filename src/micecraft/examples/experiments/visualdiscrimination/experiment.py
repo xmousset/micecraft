@@ -1040,7 +1040,7 @@ class Room:
         logging.info(f"[room_state] room {str(self)} state TRIAL")
 
 
-class TouchScreenExperiment:
+class VisualDiscriminationExperiment:
     """Class that handle the whole touchscreen experiment."""
 
     def __init__(self):
@@ -1414,5 +1414,5 @@ class TouchScreenExperiment:
 if __name__ == "__main__":
 
     print("Starting experiment")
-    expe = TouchScreenExperiment()
+    expe = VisualDiscriminationExperiment()
     print("Done")
