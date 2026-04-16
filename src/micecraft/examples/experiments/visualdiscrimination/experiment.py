@@ -1118,6 +1118,7 @@ class VisualDiscriminationExperiment:
             filename=log_file,
             format="%(asctime)s.%(msecs)03d: %(message)s",
             datefmt="%Y-%m-%d %H:%M:%S",
+            force=True,
         )  # log message in appropriate file with time and date
 
         # log also in console
