@@ -488,9 +488,9 @@ class Animal:
         instance.correct_image = TSImage[dic["ts_image"]]
         _, phase_name = dic["phase"].split("-")
         instance.phase = Phase.get(phase_name)
-        assert str(instance.phase.criteria) == Criteria.from_repr(
-            dic["criteria"]
-        )
+        assert (
+            str(instance.phase.criteria) == dic["criteria"]
+        ), "Criteria mismatch during loading."
 
         instance.phases_start_time = {
             Phase.get(phase.split("-")[1]): cls.str_to_datetime(date)

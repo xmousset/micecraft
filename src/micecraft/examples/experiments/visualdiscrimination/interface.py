@@ -479,7 +479,9 @@ class VisualDiscriminationInterface(QWidget):
         self.resize(1000, 400)
         self.setWindowTitle("LMT blocks - gate rfid back test")
 
-        self.thread: threading.Thread = threading.Thread(target=self.monitor_GUI)  # type: ignore
+        self.thread: threading.Thread = threading.Thread(  # type: ignore
+            target=self.monitor_GUI
+        )
         self.refresher.connect(self.on_refresh_data)
         self.thread.start()
 
