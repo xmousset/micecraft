@@ -692,12 +692,12 @@ class Room:
         )
         logging.info(
             "[init_hardware] "
-            f"room {str(self)} "
-            f"device {type(self.gate).__name__} "
-            f"COM_SERVO {self.gate.COM_Servo} "
-            f"COM_ARDUINO {self.gate.COM_Arduino} "
-            f"COM_RFID {self.gate.COM_RFID} "
-            f"name {self.gate.name} "
+            f"room: {str(self)} "
+            f"device: {type(self.gate).__name__} "
+            f"COM_SERVO: {self.gate.COM_Servo} "
+            f"COM_ARDUINO: {self.gate.COM_Arduino} "
+            f"COM_RFID: {self.gate.COM_RFID} "
+            f"name: {self.gate.name} "
         )
 
         # touchscreen
@@ -710,10 +710,10 @@ class Room:
         self.ts.showCalibration(False)
         logging.info(
             "[init_hardware] "
-            f"room {str(self)} "
-            f"device {type(self.ts).__name__} "
-            f"COM_PORT {self.ts.comPort} "
-            f"name {self.ts.name} "
+            f"room: {str(self)} "
+            f"device: {type(self.ts).__name__} "
+            f"COM_PORT: {self.ts.comPort} "
+            f"name: {self.ts.name} "
         )
 
         # waterpump
@@ -722,17 +722,15 @@ class Room:
         self.wp.setDropParameters(255, 17, 0.025)
         logging.info(
             "[init_hardware] "
-            f"room {str(self)} "
-            f"device {type(self.wp).__name__} "
-            f"COM_PORT {self.wp.comPort} "
-            f"name {self.wp.name} "
+            f"room: {str(self)} "
+            f"device: {type(self.wp).__name__} "
+            f"COM_PORT: {self.wp.comPort} "
+            f"name: {self.wp.name} "
         )
 
     def log_warning_no_animal_in(self, info: str):
         """Log a warning if no animal is in the room."""
-        logging.info(
-            "[warning] [animal_in] " f"room {str(self)} " f"info {info} "
-        )
+        logging.info(f"[warning] [animal_in] room: {str(self)} info: {info} ")
 
     def touchscreen_listener(self, event: DeviceEvent):
         """Function called by the touchscreen when it fires an event."""
@@ -758,13 +756,12 @@ class Room:
 
             if str(correct_image) in event.description:
                 logging.info(
-                    "[trial_result] "
-                    f"room {str(self)} "
-                    f"rfid {self.animal_in} "
-                    f"phase {str(self.animal_in.phase)} "
-                    f"solution {str(correct_image)} "
-                    f"chosen_side {choice_str} "
-                    f"result SUCCESS "
+                    f"[trial_result] room: {str(self)} "
+                    f"rfid: {self.animal_in} "
+                    f"phase: {str(self.animal_in.phase)} "
+                    f"solution: {str(correct_image)} "
+                    f"chosen_side: {choice_str} "
+                    f"result: SUCCESS "
                 )
 
                 if self.video_recorder:
@@ -775,13 +772,12 @@ class Room:
 
             if str(correct_image.get_opposite()) in event.description:
                 logging.info(
-                    "[trial_result] "
-                    f"room {str(self)} "
-                    f"rfid {self.animal_in} "
-                    f"phase {str(self.animal_in.phase)} "
-                    f"solution {str(correct_image)} "
-                    f"chosen_side {choice_str} "
-                    f"result FAIL "
+                    f"[trial_result] room: {str(self)} "
+                    f"rfid: {self.animal_in} "
+                    f"phase: {str(self.animal_in.phase)} "
+                    f"solution: {str(correct_image)} "
+                    f"chosen_side: {choice_str} "
+                    f"result: FAIL "
                 )
 
                 if self.video_recorder:
@@ -802,16 +798,16 @@ class Room:
                 self.animal_in.add_picked_reward(True)
                 logging.info(
                     "[reward_picking] "
-                    f"rfid {self.animal_in} "
-                    f"reward picked"
+                    f"rfid: {self.animal_in} "
+                    f"reward: picked"
                 )
                 self.set_trial_state()
             else:
                 self.animal_in.add_picked_reward(False)
                 logging.info(
                     "[reward_picking] "
-                    f"rfid {self.animal_in} "
-                    f"reward try_picking_but_no_reward_to_pick"
+                    f"rfid: {self.animal_in} "
+                    f"reward: try_picking_but_no_reward_to_pick"
                 )
 
     def get_all_devices(self) -> list[Any]:
@@ -823,9 +819,9 @@ class Room:
         self.gate.mouseAverageWeight = weight
         logging.info(
             "[gate_expected_weight] "
-            f"room {str(self)} "
-            f"device {type(self.gate).__name__ + '__' + self.gate.name} "
-            f"expected_weight_set_to_(g) {weight}"
+            f"room: {str(self)} "
+            f"device: {type(self.gate).__name__}__{self.gate.name} "
+            f"expected_weight_set_to_(g): {weight}"
         )
 
     def shutdown_room(self):
@@ -864,12 +860,12 @@ class Room:
 
         logging.info(
             "[touchscreen_display] "
-            f"room {str(self)} "
-            f"device {type(self.ts).__name__ + '__' + self.ts.name} "
-            f"left {str(left_img)} "
-            f"right {str(right_img)} "
-            f"id_left {left_img.get_image_id()} "
-            f"id_right {right_img.get_image_id()} "
+            f"room: {str(self)} "
+            f"device: {type(self.ts).__name__ + '__' + self.ts.name} "
+            f"left: {str(left_img)} "
+            f"right: {str(right_img)} "
+            f"id_left: {left_img.get_image_id()} "
+            f"id_right: {right_img.get_image_id()} "
         )
         self.ts.setXYImage(
             f"ts_left_image_{str(left_img)}",
@@ -897,10 +893,10 @@ class Room:
 
         logging.info(
             f"[touchscreen_random_display] "
-            f"room {str(self)} "
-            f"device {type(self.ts).__name__ + '__' + self.ts.name} "
-            f"image {str(img)} "
-            f"opposite {str(img.get_opposite())} "
+            f"room: {str(self)} "
+            f"device: {type(self.ts).__name__ + '__' + self.ts.name} "
+            f"image: {str(img)} "
+            f"opposite: {str(img.get_opposite())} "
         )
 
         self.ts_display(
@@ -925,9 +921,9 @@ class Room:
 
         logging.info(
             "[touch_simulation] "
-            f"room {str(self)} "
-            f"device {type(self.ts).__name__ + '__' + self.ts.name} "
-            f"img_touch {img_name} "
+            f"room: {str(self)} "
+            f"device: {type(self.ts).__name__}__{self.ts.name} "
+            f"img_touch: {img_name} "
         )
 
     def clear_state(self, flush_duration: int = 0):
@@ -941,14 +937,14 @@ class Room:
         self.ts.enabled = False
         self.wp.lightOff()
         self.ts.clear()
-        logging.info(f"[room_state] room {str(self)} state CLEAR")
+        logging.info(f"[room_state] room: {str(self)} state: CLEAR")
         if flush_duration > 0:
             self.wp.flush(255, flush_duration)
             logging.info(
                 "[reward_flushing] "
-                f"room {str(self)} "
-                f"device {type(self.wp).__name__ + '__' + self.wp.name} "
-                f"flush_duration_(ms) {flush_duration}"
+                f"room: {str(self)} "
+                f"device: {type(self.wp).__name__}__{self.wp.name} "
+                f"flush_duration_(ms): {flush_duration}"
             )
 
     def set_initial_state(self, animal: Animal):
@@ -961,10 +957,10 @@ class Room:
 
         logging.info(
             "[animal_in] "
-            f"room {str(self)} "
-            f"animal {self.animal_in.rfid} "
+            f"room: {str(self)} "
+            f"animal: {self.animal_in.rfid} "
         )
-        logging.info(f"[room_state] room {str(self)} state INITIAL")
+        logging.info(f"[room_state] room: {str(self)} state: INITIAL")
         self.set_trial_state()
 
     def set_exit_state(self):
@@ -972,7 +968,7 @@ class Room:
         exits the room."""
         self.cancel_all_timers()
         self.clear_state(500)
-        logging.info(f"[room_state] room {str(self)} state EXIT")
+        logging.info(f"[room_state] room: {str(self)} state: EXIT")
 
         if self.animal_in is None:
             self.log_warning_no_animal_in(
@@ -981,7 +977,7 @@ class Room:
         else:
             logging.info(
                 "[animal_progression] "
-                f"rfid {self.animal_in} "
+                f"rfid: {self.animal_in} "
                 f"{' '.join(self.animal_in.progression_display)}"
             )
             if self.animal_in.phase_completed():
@@ -989,14 +985,14 @@ class Room:
                 self.animal_in.proceed_to_next_phase()
                 logging.info(
                     "[phase_completion] "
-                    f"rfid {self.animal_in} "
-                    f"completed_phase {previous_phase} "
-                    f"current_phase {self.animal_in.phase}"
+                    f"rfid: {self.animal_in} "
+                    f"completed_phase: {previous_phase} "
+                    f"current_phase: {self.animal_in.phase}"
                 )
             logging.info(
                 "[animal_out] "
-                f"room {str(self)} "
-                f"animal {self.animal_in.rfid} "
+                f"room: {str(self)} "
+                f"animal: {self.animal_in.rfid} "
             )
         self.expe_data_saver()
         self.animal_in = None
@@ -1010,18 +1006,18 @@ class Room:
         self.wp.lightOn(30)
         logging.info(
             "[reward_delivery] "
-            f"room {str(self)} "
-            f"device {type(self.wp).__name__ + '__' + self.wp.name} "
-            f"reward_size {reward_size}"
+            f"room: {str(self)} "
+            f"device: {type(self.wp).__name__ + '__' + self.wp.name} "
+            f"reward_size: {reward_size}"
         )
-        logging.info(f"[room_state] room {str(self)} state SUCCESS")
+        logging.info(f"[room_state] room: {str(self)} state: SUCCESS")
 
     def set_fail_state(self, wait_time: int):
         """Set room in FAIL state."""
         self.cancel_all_timers()
         self.clear_state(1000)
         self.start_timer(wait_time, self.set_trial_state)
-        logging.info(f"[room_state] room {str(self)} state FAIL")
+        logging.info(f"[room_state] room: {str(self)} state: FAIL")
 
     def set_trial_state(self):
         """Grab the phase of animal. Update room depending on animal phase
@@ -1038,7 +1034,7 @@ class Room:
         self.ts_random_display(self.animal_in.get_correct_image())
         self.action_enabled = True
 
-        logging.info(f"[room_state] room {str(self)} state TRIAL")
+        logging.info(f"[room_state] room: {str(self)} state: TRIAL")
 
 
 class VisualDiscriminationExperiment:
@@ -1140,14 +1136,14 @@ class VisualDiscriminationExperiment:
             self.animals[animal.rfid] = animal
             logging.info(
                 f"[animal_loading] "
-                f"rfid {animal.rfid} "
-                f"phase {animal.phase} "
-                f"ts_image {animal.correct_image} "
+                f"rfid: {animal.rfid} "
+                f"phase: {animal.phase} "
+                f"ts_image: {animal.correct_image} "
             )
             logging.info(
                 "[animal_progression] "
-                f"rfid {animal.rfid} "
-                f"progression {' '.join(animal.progression_display)}"
+                f"rfid: {animal.rfid} "
+                f"progression: {' '.join(animal.progression_display)}"
             )
 
         # Global devices
@@ -1181,8 +1177,8 @@ class VisualDiscriminationExperiment:
         self.roomSensorDigest.delayS = 5 * 60
         logging.info(
             "[init_sensors] "
-            f"device {type(self.roomSensorDigest).__name__} "
-            f"COM_PORT {self.roomSensorDigest.comPort} "
+            f"device: {type(self.roomSensorDigest).__name__} "
+            f"COM_PORT: {self.roomSensorDigest.comPort} "
         )
 
     def shutdown_experiment(self):
@@ -1257,14 +1253,14 @@ class VisualDiscriminationExperiment:
             data[rfid] = animal.save_as_dict()
             logging.info(
                 f"[animal_saving] "
-                f"rfid {rfid} "
-                f"phase {animal.phase} "
-                f"ts_image {animal.correct_image} "
+                f"rfid: {rfid} "
+                f"phase: {animal.phase} "
+                f"ts_image: {animal.correct_image} "
             )
             logging.info(
                 "[animal_progression] "
-                f"rfid {rfid} "
-                f"progression {' '.join(animal.progression_display)}"
+                f"rfid: {rfid} "
+                f"progression: {' '.join(animal.progression_display)}"
             )
         self.animals_saver.setData(data)
         self.animals_saver.save()
@@ -1272,7 +1268,7 @@ class VisualDiscriminationExperiment:
     def register_RFID(self, rfid: str | None):
         """Registered RFID if not already in animals."""
         if rfid is None:
-            logging.info(f"[warning] [rfid_registration] rfid {rfid}")
+            logging.info(f"[warning] [rfid_registration] rfid: {rfid}")
             return
 
         all_rfid = self.get_all_rfid()
@@ -1281,8 +1277,8 @@ class VisualDiscriminationExperiment:
             self.animals[rfid] = Animal(rfid)
             logging.info(
                 "[rfid_registration] "
-                f"rfid {rfid} "
-                f"phase {str(self.animals[rfid].phase)} "
+                f"rfid: {rfid} "
+                f"phase: {str(self.animals[rfid].phase)} "
             )
 
             if self.info.auto_random_attribution:
@@ -1296,17 +1292,17 @@ class VisualDiscriminationExperiment:
 
             logging.info(
                 "[ts_image_attribution] "
-                f"rfid {rfid} "
-                f"ts_image {str(self.animals[rfid].correct_image)} "
+                f"rfid: {rfid} "
+                f"ts_image: {str(self.animals[rfid].correct_image)} "
             )
 
         else:
             logging.info(
                 "[warning] [rfid_registration] "
-                f"rfid {rfid} "
-                f"already_registered {"_".join(all_rfid)} "
-                f"phase {str(self.animals[rfid].phase)} "
-                f"ts_image {str(self.animals[rfid].correct_image)} "
+                f"rfid: {rfid} "
+                f"already_registered: {"_".join(all_rfid)} "
+                f"phase: {str(self.animals[rfid].phase)} "
+                f"ts_image: {str(self.animals[rfid].correct_image)} "
             )
 
     # ================ VISUAL APP INTERACTIONS ================
@@ -1324,9 +1320,8 @@ class VisualDiscriminationExperiment:
             self.animals[rfid].correct_image = ts_image
             logging.info(
                 "[ts_image_attribution] "
-                f"rfid {rfid} "
-                f"ts_image {str(ts_image)} "
-                "(forced_by_user)"
+                f"rfid: {rfid} "
+                f"ts_image: {str(ts_image)} "
             )
 
     def get_phase(self, rfid: str) -> Phase | None:
@@ -1340,10 +1335,7 @@ class VisualDiscriminationExperiment:
         if rfid in self.animals.keys():
             self.animals[rfid].phase = phase
             logging.info(
-                "[phase_attribution] "
-                f"rfid {rfid} "
-                f"phase {str(phase)} "
-                "(forced_by_user)"
+                "[phase_attribution] " f"rfid: {rfid} " f"phase: {str(phase)} "
             )
 
     def get_all_rooms(self) -> list[Room]:
@@ -1377,9 +1369,8 @@ class VisualDiscriminationExperiment:
         if room is None:
             logging.info(
                 "[warning] [gate_listener] "
-                f"room NOT_FOUND "
-                f"device {str(event.deviceType) + '__' + device} "
-                f"event {event.description}"
+                f"room: NOT_FOUND "
+                f"device: {str(event.deviceType) + '__' + device} "
             )
             return
 
@@ -1390,15 +1381,15 @@ class VisualDiscriminationExperiment:
                 read_rfid: str = event.data  # type: ignore
                 self.register_RFID(read_rfid)
                 room.set_initial_state(self.animals[read_rfid])
+                return
 
         # get animal corresponding to RFID in room, if exist
         if room.animal_in is None:
             logging.info(
                 "[warning] "
                 "[gate_listener] "
-                f"room {str(room)} "
-                f"rfid {None} "
-                f"event_desc {event.description}"
+                f"room: {str(room)} "
+                f"rfid: NOT_FOUND "
             )
             return
 
@@ -1406,6 +1397,7 @@ class VisualDiscriminationExperiment:
         # ----------------
         if "FREE TO GET TO SIDE A" in event.description:
             room.set_exit_state()
+            return
 
         # Animal info
         # ----------------

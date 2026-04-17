@@ -56,9 +56,9 @@ class UserAction:
     def exec(self):
         """Log if necessary and execute the callable 'action' with 'args' if
         the callable is not None."""
-        msg = f"[user_action] name {self.action.__name__} "
+        msg = f"[user_action] name: {self.action.__name__} "
         if self.log is not None:
-            msg += f"log {self.log}"
+            msg += f"log: {self.log}"
 
         logging.info(msg)
 
@@ -129,7 +129,7 @@ class VisualRoom:
         room = experiment.get_room(name=self.name)
         if room is None:
             logging.info(
-                "[warning] [visual_room_binding] " f"wrong_name {self.name} "
+                "[warning] [visual_room_binding] " f"wrong_name: {self.name} "
             )
             return
         self.gate.bindToGate(room.gate)
@@ -472,7 +472,7 @@ class VisualDiscriminationInterface(QWidget):
         if action in action_map:
             action_map[action].exec()
         else:
-            logging.info(f"[user_action] user action canceled")
+            logging.info(f"[user_action] name: ACTION_CANCELED")
 
     def start(self):
         """Initialise the application."""
