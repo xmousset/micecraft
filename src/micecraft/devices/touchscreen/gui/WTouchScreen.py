@@ -135,7 +135,7 @@ class WTouchScreen(QWidget):
         _, _, ww, wh = WTouchScreen.get_rect("widget")
         self.setGeometry(int(self.xy_pos[0]), int(self.xy_pos[1]), ww, wh)
 
-        self.touchScreen = None
+        self.touchscreen = None
         self.name = "WTS"
 
         self.visualDeviceAlarmStatus = VisualDeviceAlarmStatus()
@@ -144,7 +144,7 @@ class WTouchScreen(QWidget):
             "left": None,
             "right": None,
         }
-        self.xyimg_name: dict[str, str | None] = {
+        self.img_name: dict[str, str | None] = {
             "left": None,
             "right": None,
         }
@@ -160,12 +160,12 @@ class WTouchScreen(QWidget):
 
     def bindToTouchScreen(self, ts: TouchScreen):
         """Bind this widget to a TouchScreen device instance."""
-        if self.touchScreen is not None:
-            self.touchScreen.removeDeviceListener(
+        if self.touchscreen is not None:
+            self.touchscreen.removeDeviceListener(
                 self.widget_touchscreen_listener
             )
 
-        self.touchScreen = ts
+        self.touchscreen = ts
         self.name = ts.name
         ts.addDeviceListener(self.widget_touchscreen_listener)
         self.update()
@@ -212,19 +212,19 @@ class WTouchScreen(QWidget):
                 side = "right"
 
             self.img_id[side] = id
-            self.xyimg_name[side] = name
+            self.img_name[side] = name
 
         if "removeXYImage" in desc:
             # data = (name,)
             name = event.data[0]  # type: ignore
-            if name == self.xyimg_name["left"]:
+            if name == self.img_name["left"]:
                 side = "left"
-            elif name == self.xyimg_name["right"]:
+            elif name == self.img_name["right"]:
                 side = "right"
             else:
                 return
             self.img_id[side] = None
-            self.xyimg_name[side] = None
+            self.img_name[side] = None
 
         if "symbol touched" in desc:
             # data = (id, x, y, xf, yf)
@@ -247,7 +247,7 @@ class WTouchScreen(QWidget):
         if "clear" in desc:
             for side in ["left", "right"]:
                 self.img_id[side] = None
-                self.xyimg_name[side] = None
+                self.img_name[side] = None
 
         self.update()
 
@@ -271,7 +271,7 @@ class WTouchScreen(QWidget):
         p.fillRect(0, 0, w, h, WTouchScreen.BG_COLOR)
 
         # disabled overlay
-        if self.touchScreen is not None and not self.touchScreen.enabled:
+        if self.touchscreen is not None and not self.touchscreen.enabled:
             p.setPen(WTouchScreen.DARK_COLOR)
             font = QFont("Calibri", 16)
             font.setBold(True)
@@ -344,12 +344,12 @@ class WTouchScreen(QWidget):
             self.name,
         )
 
-        self.visualDeviceAlarmStatus.draw(
-            p,
-            self.touchScreen,
-            ellipseRect=QRect(22, 60, 10, 10),
-            textRect=QRect(-25, 13, 100, 50),
-        )
+        # self.visualDeviceAlarmStatus.draw(
+        #     p,
+        #     self.touchscreen,
+        #     ellipseRect=QRect(22, 60, 10, 10),
+        #     textRect=QRect(-25, 13, 100, 50),
+        # )
 
         p.end()
 
@@ -400,7 +400,7 @@ class WTouchScreen(QWidget):
         simulate = QMenu("Simulate event", menu)
         menu.addMenu(simulate)
 
-        if self.touchScreen is None:
+        if self.touchscreen is None:
             msgs = [
                 "Warning: no TouchScreen found",
                 "=> simulations will have no effect",
@@ -473,43 +473,58 @@ class WTouchScreen(QWidget):
         if side not in ["left", "right"]:
             return
         self.img_id[side] = None
-        self.xyimg_name[side] = None
+        self.img_name[side] = None
         self.update()
 
     def simulate_set_image(self, side: str, img_id: int):
         """Simulate a 'setImage' event on the given side ('left' or 'right')
         with the given img_id."""
-        if self.touchScreen is None:
+        if self.touchscreen is None:
             return
-        x = 0 if side == "left" else self.SCREEN_SIZE[0]
-        y = 0.5 * self.SCREEN_SIZE[1]
-        self.touchScreen.setImage(img_id, x, y)
+        x = WTouchScreen.SCREEN_SIZE[0] / 2
+        x += -400 if side == "left" else 400
+        y = 750
+        name = f"{side}_image_{WTouchScreen.NAME_DICT[img_id]}"
+        self.touchscreen.setXYImage(
+            name,
+            img_id,
+            x,
+            y,
+            0,
+            1,
+        )
+        self.img_id[side] = img_id
+        self.img_name[side] = name
+        self.update()
 
     def simulate_remove_image(self, side: str):
         """Simulate a 'removeImage' event on the given side ('left' or 'right')."""
-        if self.touchScreen is None:
+        if self.touchscreen is None:
             return
-        x = 0 if side == "left" else self.SCREEN_SIZE[0]
-        y = 0.5 * self.SCREEN_SIZE[1]
-        self.touchScreen.removeImage(x, y)
+        name = self.img_name[side]
+        self.touchscreen.removeXYImage(name)
+        self.img_id[side] = None
+        self.img_name[side] = None
+        self.update()
 
     def simulate_touch_event(self, side: str, id: int | None = None):
         """Fire a synthetic 'symbol xy touched' event through the device."""
-        if self.touchScreen is None:
+        if self.touchscreen is None:
             return
         if id is None:
             id = 7
         x = 0 if side == "left" else self.SCREEN_SIZE[0]
         y = 0.5 * self.SCREEN_SIZE[1]
         name = side + "_simulation"
-        self.touchScreen.fireEvent(
+        self.touchscreen.fireEvent(
             DeviceEvent(
                 "touchscreen",
-                self.touchScreen,
+                self.touchscreen,
                 f"symbol xy touched {name} id {id} at 0,0,{x},{y}",
                 (name, id, 0, 0, x, y),
             )
         )
+        self.update()
 
 
 if __name__ == "__main__":

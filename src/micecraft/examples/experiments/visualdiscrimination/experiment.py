@@ -752,11 +752,11 @@ class Room:
         if "symbol xy touched" in event.description:
 
             choice_str = "warning"
-            if "ts_left_image" in event.description:
+            if "left_image" in event.description:
                 choice_str = "left"
                 self.animal_in.add_side_choice(choice_left=True)
 
-            if "ts_right_image" in event.description:
+            if "right_image" in event.description:
                 choice_str = "right"
                 self.animal_in.add_side_choice(choice_left=False)
 
@@ -877,7 +877,7 @@ class Room:
             f"id_right: {right_img.get_image_id()} "
         )
         self.ts.setXYImage(
-            f"ts_left_image_{str(left_img)}",
+            f"left_image_{str(left_img)}",
             left_img.get_image_id(),
             1920 / 2 - 400,
             750,
@@ -885,7 +885,7 @@ class Room:
             1,
         )
         self.ts.setXYImage(
-            f"ts_right_image_{str(right_img)}",
+            f"right_image_{str(right_img)}",
             right_img.get_image_id(),
             1920 / 2 + 400,
             750,
@@ -922,7 +922,7 @@ class Room:
             DeviceEvent(
                 deviceType="touchscreen",
                 deviceObject=self,
-                description="symbol xy touched " + f"ts_left_image_{img_name}",
+                description="symbol xy touched " + f"left_image_{img_name}",
                 data=("simulate", 0, 0, 0, 0, 0),
             )
         )
