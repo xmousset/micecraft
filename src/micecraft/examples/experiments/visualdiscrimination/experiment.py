@@ -718,7 +718,7 @@ class Room:
 
         # waterpump
         # ----------------
-        self.wp.addDeviceListener(self.touchscreen_listener)
+        self.wp.addDeviceListener(self.waterpump_listener)
         self.wp.setDropParameters(255, 17, 0.025)
         logging.info(
             "[init_hardware] "
@@ -739,6 +739,7 @@ class Room:
 
     def touchscreen_listener(self, event: DeviceEvent):
         """Function called by the touchscreen when it fires an event."""
+        logging.info(f"[touchscreen_event] event: {event.description} ")
 
         if self.animal_in is None:
             self.log_animal_in_error("touchscreen_listener")
@@ -793,6 +794,7 @@ class Room:
 
     def waterpump_listener(self, event: DeviceEvent):
         """Function called by the waterpump when it fires an event."""
+        logging.info(f"[waterpump_event] event: {event.description} ")
 
         if self.animal_in is None:
             self.log_animal_in_error("waterpump_listener")
@@ -939,10 +941,10 @@ class Room:
         - turn off touchscreen
         - flush any reward if needed (flush_duration > 0) and log it
         """
+        logging.info(f"[room_state] room: {str(self)} state: CLEAR")
         self.ts.enabled = False
         self.wp.lightOff()
         self.ts.clear()
-        logging.info(f"[room_state] room: {str(self)} state: CLEAR")
         if flush_duration > 0:
             self.wp.flush(255, flush_duration)
             logging.info(
@@ -959,13 +961,13 @@ class Room:
         self.clear_state()
 
         self.animal_in = animal
-
         logging.info(
             "[animal_in] "
             f"room: {str(self)} "
             f"animal: {self.animal_in.rfid} "
         )
         logging.info(f"[room_state] room: {str(self)} state: INITIAL")
+
         self.set_trial_state()
 
     def set_exit_state(self):
@@ -973,6 +975,7 @@ class Room:
         exits the room."""
         self.cancel_all_timers()
         self.clear_state(500)
+
         logging.info(f"[room_state] room: {str(self)} state: EXIT")
 
         if self.animal_in is None:
@@ -1005,6 +1008,8 @@ class Room:
         """Set room in SUCCESS state."""
         self.cancel_all_timers()
         self.clear_state()
+
+        logging.info(f"[room_state] room: {str(self)} state: SUCCESS")
         self.wp.deliverDrop(reward_size)
         self.wp.lightOn(30)
         logging.info(
@@ -1013,14 +1018,13 @@ class Room:
             f"device: {type(self.wp).__name__ + '__' + self.wp.name} "
             f"reward_size: {reward_size}"
         )
-        logging.info(f"[room_state] room: {str(self)} state: SUCCESS")
 
     def set_fail_state(self, wait_time: int):
         """Set room in FAIL state."""
         self.cancel_all_timers()
         self.clear_state(1000)
-        self.start_timer(wait_time, self.set_trial_state)
         logging.info(f"[room_state] room: {str(self)} state: FAIL")
+        self.start_timer(wait_time, self.set_trial_state)
 
     def set_trial_state(self):
         """Grab the phase of animal. Update room depending on animal phase
@@ -1364,7 +1368,7 @@ class VisualDiscriminationExperiment:
 
     def gate_listener(self, event: DeviceEvent):
         """Function called by the gates when they fire an event."""
-
+        logging.info(f"[gate_event] event: {event.description} ")
         # get room and device corresponding to event
         device = event.deviceObject.name  # type: ignore
         room = self.get_room(name=device)
