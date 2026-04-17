@@ -685,7 +685,10 @@ class Room:
 
         # gate
         # ----------------
-        if self.gate_listener is not None:
+        if (
+            self.gate_listener is not None
+            and self.gate_listener not in self.gate.deviceListenerList
+        ):
             self.gate.addDeviceListener(self.gate_listener)
         self.gate.setSpeedAndTorqueLimits(140, 140)
         self.gate.weightFactor = 0.6  # type: ignore
@@ -703,7 +706,8 @@ class Room:
 
         # touchscreen
         # ----------------
-        self.ts.addDeviceListener(self.touchscreen_listener)
+        if self.touchscreen_listener not in self.ts.deviceListenerList:
+            self.ts.addDeviceListener(self.touchscreen_listener)
         self.ts.setTransparency(0.5)
         self.ts.setMouseMode()
         self.ts.clear()
@@ -718,7 +722,8 @@ class Room:
 
         # waterpump
         # ----------------
-        self.wp.addDeviceListener(self.waterpump_listener)
+        if self.waterpump_listener not in self.wp.deviceListenerList:
+            self.wp.addDeviceListener(self.waterpump_listener)
         self.wp.setDropParameters(255, 17, 0.025)
         if display_log:
             logging.info(
@@ -1068,14 +1073,13 @@ class VisualDiscriminationExperiment:
         Phase("END", 4, Criteria(), force_correct_image=TSImage.DARK)
         # Room creation
         # ----------------
-        wp_alpha = WaterPump(comPort="COM22", name="WaterPump")
+        wp_alpha = WaterPump(comPort="COM22")
         ts_alpha = TouchScreen(comPort="COM20")
         gate_alpha = Gate(
             COM_Servo="COM36",
             COM_Arduino="COM30",
             COM_RFID="COM27",
-            name="gate",
-            weightFactor=0.6,  # type: ignore
+            weightFactor=0.6,
             mouseAverageWeight=25,
         )
 
@@ -1172,7 +1176,11 @@ class VisualDiscriminationExperiment:
         for room in Room.ALL:
             room.init_room()
 
-        self.roomSensorDigest.addDeviceListener(self.room_sensor_listener)
+        if (
+            self.room_sensor_listener
+            not in self.roomSensorDigest.deviceListenerList
+        ):
+            self.roomSensorDigest.addDeviceListener(self.room_sensor_listener)
         self.roomSensorDigest.delayS = 5 * 60
         logging.info(
             "[init_sensors] "
@@ -1292,15 +1300,6 @@ class VisualDiscriminationExperiment:
             logging.info(
                 "[ts_image_attribution] "
                 f"rfid: {rfid} "
-                f"ts_image: {str(self.animals[rfid].correct_image)} "
-            )
-
-        else:
-            logging.info(
-                "[warning] [rfid_registration] "
-                f"rfid: {rfid} "
-                f"already_registered: {"_".join(all_rfid)} "
-                f"phase: {str(self.animals[rfid].phase)} "
                 f"ts_image: {str(self.animals[rfid].correct_image)} "
             )
 

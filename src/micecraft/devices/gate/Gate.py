@@ -267,7 +267,7 @@ class Gate(object):
     A gate manage 2 doors
     '''
 
-    def __init__(self, COM_Servo=None, COM_Arduino=None, COM_RFID=None, name="noName gate" , weightFactor = 1 , mouseAverageWeight = 25, enableLIDAR = True , lidarPinOrder = None , gateMode = GateMode.MOUSE, invertScale = False ):        
+    def __init__(self, COM_Servo=None, COM_Arduino=None, COM_RFID=None, name="noName gate" , weightFactor = 1.0 , mouseAverageWeight = 25, enableLIDAR = True , lidarPinOrder = None , gateMode = GateMode.MOUSE, invertScale = False ):        
         
         print('Gate init..')
 
