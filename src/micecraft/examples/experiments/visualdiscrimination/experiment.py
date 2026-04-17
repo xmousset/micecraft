@@ -282,6 +282,7 @@ class Criteria:
         accuracy: tuple[float, int] = (0.0, 0),
     ) -> None:
         """Initialise a Criteria object with the criteria as optional keyword arguments.
+
         Parameters
         ----------
         min_rewards : int, optional
@@ -662,11 +663,11 @@ class Room:
         """List of currently running timers."""
 
         self.gate: Gate = gate
-        self.gate.name = self.name + "-" + self.gate.name
+        self.gate.name = self.name + "-" + "Gate"
         self.ts: TouchScreen = touchscreen
-        self.ts.name = self.name + "-" + self.ts.name
+        self.ts.name = self.name + "-" + "TS"
         self.wp: WaterPump = waterpump
-        self.wp.name = self.name + "-" + self.wp.name
+        self.wp.name = self.name + "-" + "WP"
 
         Room.ALL.append(self)
 
@@ -681,6 +682,7 @@ class Room:
 
     def init_room(self, display_log: bool = True):
         """Initialise all hardware of the room."""
+
         # gate
         # ----------------
         if self.gate_listener is not None:
@@ -690,15 +692,14 @@ class Room:
         self.gate.setOrder(
             GateOrder.ONLY_ONE_ANIMAL_IN_B, options=["no rfid check on return"]
         )
-        logging.info(
-            "[init_hardware] "
-            f"room: {str(self)} "
-            f"device: {type(self.gate).__name__} "
-            f"COM_SERVO: {self.gate.COM_Servo} "
-            f"COM_ARDUINO: {self.gate.COM_Arduino} "
-            f"COM_RFID: {self.gate.COM_RFID} "
-            f"name: {self.gate.name} "
-        )
+        if display_log:
+            logging.info(
+                "[init_hardware] "
+                f"room-device: {self.gate.name} "
+                f"COM_SERVO: {self.gate.COM_Servo} "
+                f"COM_ARDUINO: {self.gate.COM_Arduino} "
+                f"COM_RFID: {self.gate.COM_RFID} "
+            )
 
         # touchscreen
         # ----------------
@@ -708,33 +709,31 @@ class Room:
         self.ts.clear()
         self.ts.setConfig(1, 1, 900)
         self.ts.showCalibration(False)
-        logging.info(
-            "[init_hardware] "
-            f"room: {str(self)} "
-            f"device: {type(self.ts).__name__} "
-            f"COM_PORT: {self.ts.comPort} "
-            f"name: {self.ts.name} "
-        )
+        if display_log:
+            logging.info(
+                "[init_hardware] "
+                f"room-device: {self.ts.name} "
+                f"COM_PORT: {self.ts.comPort} "
+            )
 
         # waterpump
         # ----------------
         self.wp.addDeviceListener(self.waterpump_listener)
         self.wp.setDropParameters(255, 17, 0.025)
-        logging.info(
-            "[init_hardware] "
-            f"room: {str(self)} "
-            f"device: {type(self.wp).__name__} "
-            f"COM_PORT: {self.wp.comPort} "
-            f"name: {self.wp.name} "
-        )
+        if display_log:
+            logging.info(
+                "[init_hardware] "
+                f"room-device: {self.wp.name} "
+                f"COM_PORT: {self.wp.comPort} "
+            )
 
     def log_animal_in_error(self, function: str):
         """Log a warning if no animal is in the room."""
         logging.info(
             "[warning] [animal_in] "
             f"room: {str(self)} "
-            f"rfid: {None} "
-            f"when_processing: {function} "
+            f"rfid: NOT_FOUND "
+            f"callable: {function} "
         )
 
     def touchscreen_listener(self, event: DeviceEvent):
@@ -826,8 +825,7 @@ class Room:
         self.gate.mouseAverageWeight = weight
         logging.info(
             "[gate_expected_weight] "
-            f"room: {str(self)} "
-            f"device: {type(self.gate).__name__}__{self.gate.name} "
+            f"room-device: {self.gate.name} "
             f"expected_weight_set_to_(g): {weight}"
         )
 
@@ -867,8 +865,7 @@ class Room:
 
         logging.info(
             "[touchscreen_display] "
-            f"room: {str(self)} "
-            f"device: {type(self.ts).__name__ + '__' + self.ts.name} "
+            f"room-device: {self.ts.name} "
             f"left: {str(left_img)} "
             f"right: {str(right_img)} "
             f"id_left: {left_img.get_image_id()} "
@@ -900,8 +897,7 @@ class Room:
 
         logging.info(
             f"[touchscreen_random_display] "
-            f"room: {str(self)} "
-            f"device: {type(self.ts).__name__ + '__' + self.ts.name} "
+            f"room-device: {self.ts.name} "
             f"image: {str(img)} "
             f"opposite: {str(img.get_opposite())} "
         )
@@ -928,8 +924,7 @@ class Room:
 
         logging.info(
             "[touch_simulation] "
-            f"room: {str(self)} "
-            f"device: {type(self.ts).__name__}__{self.ts.name} "
+            f"room-device: {self.ts.name} "
             f"img_touch: {img_name} "
         )
 
@@ -949,8 +944,7 @@ class Room:
             self.wp.flush(255, flush_duration)
             logging.info(
                 "[reward_flushing] "
-                f"room: {str(self)} "
-                f"device: {type(self.wp).__name__}__{self.wp.name} "
+                f"room-device: {self.wp.name} "
                 f"flush_duration_(ms): {flush_duration}"
             )
 
@@ -1014,8 +1008,7 @@ class Room:
         self.wp.lightOn(30)
         logging.info(
             "[reward_delivery] "
-            f"room: {str(self)} "
-            f"device: {type(self.wp).__name__ + '__' + self.wp.name} "
+            f"room-device: {self.wp.name} "
             f"reward_size: {reward_size}"
         )
 
@@ -1064,16 +1057,15 @@ class VisualDiscriminationExperiment:
 
         # Phases creation
         # ----------------
-        Phase("BLACK_WHITE", 1, Criteria(accuracy=(0.9, 30)), TSImage.LIGHT)
-        Phase("FLOWER_PLANE", 2, Criteria(accuracy=(0.8, 100)))
         Phase(
-            "REVERSAL",
-            3,
-            Criteria(accuracy=(0.8, 100)),
-            use_opposite=True,
+            "BLACK_WHITE",
+            1,
+            Criteria(min_rewards=10, min_trials=50),
+            force_correct_image=TSImage.LIGHT,
         )
-        Phase("END", 4, Criteria(), use_opposite=True)
-
+        Phase("FLOWER_PLANE", 2, Criteria(accuracy=(0.8, 50)))
+        Phase("REVERSAL", 3, Criteria(accuracy=(0.8, 50)), use_opposite=True)
+        Phase("END", 4, Criteria(), force_correct_image=TSImage.DARK)
         # Room creation
         # ----------------
         wp_alpha = WaterPump(comPort="COM22", name="WaterPump")
@@ -1350,15 +1342,18 @@ class VisualDiscriminationExperiment:
         return Room.ALL
 
     def get_room(
-        self, name: str | None = None, rfid_in: str | None = None
+        self,
+        name: str | None = None,
+        rfid_in: str | None = None,
     ) -> Room | None:
         """Get the room from its *name* or from its *rfid_in*."""
         if name is not None:
             return Room.get_from_name(name)
-        elif rfid_in is not None:
+
+        if rfid_in is not None:
             return Room.get_from_rfid_in(rfid_in)
-        else:
-            return None
+
+        return None
 
     # ================ LISTENERS ================
 
@@ -1370,14 +1365,12 @@ class VisualDiscriminationExperiment:
         """Function called by the gates when they fire an event."""
         logging.info(f"[gate_event] event: {event.description} ")
         # get room and device corresponding to event
-        device = event.deviceObject.name  # type: ignore
-        room = self.get_room(name=device)
+        device_name = event.deviceObject.name  # type: ignore
+        room = self.get_room(name=device_name)
 
         if room is None:
             logging.info(
-                "[warning] [gate_listener] "
-                f"room: NOT_FOUND "
-                f"device: {str(event.deviceType) + '__' + device} "
+                "[warning] [gate_listener] " f"room-device: {device_name} "
             )
             return
 
@@ -1414,6 +1407,6 @@ class VisualDiscriminationExperiment:
 
 if __name__ == "__main__":
 
-    print("Starting experiment")
+    print("Starting experiment...")
     expe = VisualDiscriminationExperiment()
-    print("Done")
+    print("...Ending experiment.")
