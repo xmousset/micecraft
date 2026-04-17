@@ -728,15 +728,20 @@ class Room:
             f"name: {self.wp.name} "
         )
 
-    def log_warning_no_animal_in(self, info: str):
+    def log_animal_in_error(self, function: str):
         """Log a warning if no animal is in the room."""
-        logging.info(f"[warning] [animal_in] room: {str(self)} info: {info} ")
+        logging.info(
+            "[warning] [animal_in] "
+            f"room: {str(self)} "
+            f"rfid: {None} "
+            f"when_processing: {function} "
+        )
 
     def touchscreen_listener(self, event: DeviceEvent):
         """Function called by the touchscreen when it fires an event."""
 
         if self.animal_in is None:
-            self.log_warning_no_animal_in(event.description)
+            self.log_animal_in_error("touchscreen_listener")
             return
 
         if "symbol xy touched" in event.description:
@@ -790,7 +795,7 @@ class Room:
         """Function called by the waterpump when it fires an event."""
 
         if self.animal_in is None:
-            self.log_warning_no_animal_in(event.description)
+            self.log_animal_in_error("waterpump_listener")
             return
 
         if "reward picked" in event.description:
@@ -971,9 +976,7 @@ class Room:
         logging.info(f"[room_state] room: {str(self)} state: EXIT")
 
         if self.animal_in is None:
-            self.log_warning_no_animal_in(
-                "set exit state but no animal in room"
-            )
+            self.log_animal_in_error("set_exit_state")
         else:
             logging.info(
                 "[animal_progression] "
@@ -1026,7 +1029,7 @@ class Room:
         self.expe_data_saver()
 
         if self.animal_in is None:
-            self.log_warning_no_animal_in("tried to set room in trial state")
+            self.log_animal_in_error("set_trial_state")
             return
 
         self.clear_state()
