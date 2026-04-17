@@ -1085,7 +1085,7 @@ class VisualDiscriminationExperiment:
         )
 
         Room(
-            name="room_A",
+            name="rA",
             expe_data_saver=self.save_animals_data,
             video_recorder=self.record_video,
             gate=gate_alpha,

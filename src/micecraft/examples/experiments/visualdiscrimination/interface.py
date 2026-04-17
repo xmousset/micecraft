@@ -40,16 +40,27 @@ class UserAction:
     """Class to link a callable action with its arguments and a log message.
     Used when user interacts with the interface."""
 
-    def __init__(self, action: Callable | None, *args) -> None:
+    def __init__(
+        self,
+        action: Callable,
+        action_args: tuple = (),
+        log: str | None = None,
+    ) -> None:
+        """Initialise the UserAction with the callable 'action', its arguments
+        'args', and the log message 'log' to display when the action is
+        executed."""
         self.action = action
-        self.args = args
-        self.log: str | None = None
+        self.args = action_args
+        self.log: str | None = log
 
     def exec(self):
         """Log if necessary and execute the callable 'action' with 'args' if
         the callable is not None."""
+        msg = f"[user_action] name {self.action.__name__} "
         if self.log is not None:
-            logging.info(f"[user_action] " + self.log)
+            msg += f"log {self.log}"
+
+        logging.info(msg)
 
         if self.action is not None:
             self.action(*self.args)
@@ -313,7 +324,7 @@ class VisualDiscriminationInterface(QWidget):
         if self.visualStorageAlarm is not None:
             self.visualStorageAlarm.draw(
                 painter,
-                textRect=QtCore.QRect(625, 0, 50, 50),
+                textRect=QtCore.QRect(700, 300, 100, 50),
             )
 
         self.set_animal_target()
@@ -387,7 +398,7 @@ class VisualDiscriminationInterface(QWidget):
 
             for weight in weight_range:
                 weight_action = QtGui.QAction(f"{weight} g", weight_menu)
-                user_action = UserAction(room.set_animal_weight, weight)
+                user_action = UserAction(room.set_animal_weight, (weight,))
                 user_action.log = "expected weight modified"
                 action_map[weight_action] = user_action
                 if weight == gate.mouseAverageWeight:
@@ -398,24 +409,26 @@ class VisualDiscriminationInterface(QWidget):
             room_menu.addMenu(weight_menu)
 
             touch_action = QtGui.QAction("correct touch", room_menu)
-            user_action = UserAction(room.simulate_ts_event, True)
+            user_action = UserAction(room.simulate_ts_event, (True,))
             action_map[touch_action] = user_action
             room_menu.addAction(touch_action)
 
             touch_action = QtGui.QAction("wrong touch", room_menu)
-            user_action = UserAction(room.simulate_ts_event, False)
+            user_action = UserAction(room.simulate_ts_event, (False,))
             action_map[touch_action] = user_action
             room_menu.addAction(touch_action)
 
             display_action = QtGui.QAction("random display", room_menu)
-            user_action = UserAction(room.ts_random_display, TSImage.LIGHT)
+            user_action = UserAction(room.ts_random_display, (TSImage.LIGHT,))
             action_map[display_action] = user_action
             room_menu.addAction(display_action)
 
             if nb_rooms > 1:
                 menu.addMenu(room_menu)
             else:
-                menu.addAction(room_menu.menuAction())
+                for action in room_menu.actions():
+                    room_menu.removeAction(action)
+                    menu.addAction(action)
 
         menu.addSeparator()
         # animals
@@ -442,7 +455,7 @@ class VisualDiscriminationInterface(QWidget):
             for img in list(TSImage):
                 menu_action = QtGui.QAction(img.name, ts_img_menu)
                 user_action = UserAction(
-                    self.experiment.set_ts_image, rfid, img
+                    self.experiment.set_ts_image, (rfid, img)
                 )
                 action_map[menu_action] = user_action
                 if ts_image == img:
