@@ -158,7 +158,7 @@ class WPump(QtWidgets.QWidget):
         menu.addSeparator()
         simulateRewardPickedAction = menu.addAction("Simulate reward picked")
         
-        action = menu.exec_(self.mapToGlobal(event.pos()))
+        action = menu.exec(self.mapToGlobal(event.pos()))
         
         if self.pump == None:
             print("No action as there is no hardware device bound to this component")

@@ -324,7 +324,7 @@ class VisualDiscriminationInterface(QWidget):
         if self.visualStorageAlarm is not None:
             self.visualStorageAlarm.draw(
                 painter,
-                textRect=QtCore.QRect(700, 300, 100, 50),
+                textRect=QtCore.QRect(750, 320, 100, 50),
             )
 
         self.set_animal_target()
