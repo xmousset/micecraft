@@ -26,6 +26,7 @@ from PyQt6 import QtCore, QtGui
 from PyQt6.QtWidgets import QApplication, QMenu, QWidget
 from micecraft.soft.gui.WBlock import WBlock
 from micecraft.devices.gate.gui.WGate import WGate
+from micecraft.devices.touchscreen.gui.WTouchScreen import WTouchScreen
 from micecraft.devices.waterpump.gui.WPump import WPump
 from micecraft.soft.gui.WMouse import WMouse
 from micecraft.soft.gui.VisualStorageAlarm import VisualStorageAlarm
@@ -102,7 +103,7 @@ class VisualRoom:
             gate_pos[1],
             self.parent,
         )
-        self.gate.setName(name + "_gate")
+        self.gate.setName(name + "_Gate")
         self.gate.setAngle(angle)
 
         self.block = WBlock(
@@ -110,14 +111,22 @@ class VisualRoom:
             room_shift[1] + gate_pos[1],
             self.parent,
         )
-        self.block.setName(name + "_block")
+        self.block.setName(name + "_Block")
 
         self.wp: WPump = WPump(
             1 + gate_pos[0] + 0.4,
             gate_pos[1] - 0.4,
             self.parent,
         )
-        self.wp.setName(name + "_pump")
+        self.wp.setName(name + "_WP")
+
+        self.ts: WTouchScreen = WTouchScreen(
+            room_shift[0] + gate_pos[0] + self.block.w,
+            room_shift[1] + gate_pos[1],
+            90,
+            self.parent,
+        )
+        self.ts.setName(name + "_TS")
 
         VisualRoom.ALL.append(self)
 
@@ -135,6 +144,7 @@ class VisualRoom:
         self.gate.bindToGate(room.gate)
         room.gate.addDeviceListener(visual_listener)
         self.wp.bindToPump(room.wp)
+        self.ts.bindToTouchScreen(room.ts)
 
     def __str__(self) -> str:
         return self.name
