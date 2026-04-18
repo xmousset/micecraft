@@ -118,9 +118,16 @@ class WTouchScreen(QWidget):
         self.xy_pos = (x * 200 + 100 * (1 + dx), y * 200 + 100 * (1 + dy))
         self.block_wall = block_wall
         _, _, ww, wh = self.get_rect("widget")
+        if self.orientation == "horizontal":
+            geo_dx = -ww // 2
+            geo_dy = (100 - wh) // 2
+        else:
+            geo_dx = (100 - wh) // 2
+            geo_dy = -ww // 2
+
         self.setGeometry(
             int(self.xy_pos[0]) - ww // 2,
-            int(self.xy_pos[1]) - wh // 2,
+            int(self.xy_pos[1]) + (100 - wh) // 2,
             ww,
             wh,
         )

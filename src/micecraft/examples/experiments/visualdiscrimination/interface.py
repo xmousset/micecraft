@@ -91,12 +91,10 @@ class VisualRoom:
     ) -> None:
         self.parent = parent
         self.name: str = name
-        if orientation == "horizontal":
-            angle = 0
-            room_shift = (1, 0)
-        else:
-            angle = 90
-            room_shift = (0, 1)
+        if orientation == "vertical":
+            raise NotImplementedError(
+                "Vertical orientation not implemented yet."
+            )
 
         self.gate: WGate = WGate(
             gate_pos[0],
@@ -104,24 +102,24 @@ class VisualRoom:
             self.parent,
         )
         self.gate.setName(name + "_Gate")
-        self.gate.setAngle(angle)
+        # self.gate.setAngle(90)
 
         self.block = WBlock(
-            room_shift[0] + gate_pos[0],
-            room_shift[1] + gate_pos[1],
+            gate_pos[0] + 1,
+            gate_pos[1],
             self.parent,
         )
         self.block.setName(name + "_Block")
 
         self.wp: WPump = WPump(
-            1 + gate_pos[0] + 0.4,
+            gate_pos[0] + 1 + 0.4,
             gate_pos[1] - 0.4,
             self.parent,
         )
         self.wp.setName(name + "_WP")
 
         self.ts: WTouchScreen = WTouchScreen(
-            room_shift[0] + gate_pos[0] + 1,
+            gate_pos[0] + 1,
             gate_pos[1],
             "right",
             self.parent,
