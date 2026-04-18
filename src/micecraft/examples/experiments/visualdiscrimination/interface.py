@@ -127,9 +127,6 @@ class VisualRoom:
             self.parent,
         )
         self.ts.setName(name + "_TS")
-        if orientation == "horizontal":
-            w, h = self.ts.width(), self.ts.height()
-            self.ts.resize(h, w)
 
         VisualRoom.ALL.append(self)
 
