@@ -93,16 +93,34 @@ class WTouchScreen(QWidget):
         self,
         x: float = 0,
         y: float = 0,
-        orientation: Literal["horizontal", "vertical"] = "horizontal",
+        block_wall: Literal["left", "top", "right", "bottom"] = "top",
         parent: QWidget | None = None,
     ):
         super().__init__(parent)
-        self.xy_pos = (x * 200 + 100, y * 200 + 100)
-        self.orientation = orientation
+        match block_wall:
+            case "top":
+                dx = 0
+                dy = 1
+                self.orientation = "horizontal"
+            case "bottom":
+                dx = 0
+                dy = -1
+                self.orientation = "horizontal"
+            case "left":
+                dx = -1
+                dy = 0
+                self.orientation = "vertical"
+            case "right":
+                dx = 1
+                dy = 0
+                self.orientation = "vertical"
+
+        self.xy_pos = (x * 200 + 100 * (1 + dx), y * 200 + 100 * (1 + dy))
+        self.block_wall = block_wall
         _, _, ww, wh = self.get_rect("widget")
         self.setGeometry(
-            int(self.xy_pos[0]),
-            int(self.xy_pos[1]),
+            int(self.xy_pos[0]) - ww // 2,
+            int(self.xy_pos[1]) - wh // 2,
             ww,
             wh,
         )
@@ -554,7 +572,7 @@ if __name__ == "__main__":
 
     app = QtWidgets.QApplication(sys.argv)
     # ts = WTouchScreen(orientation="horizontal")
-    ts = WTouchScreen(orientation="vertical")
+    ts = WTouchScreen(block_wall="right")
     ts.setName("Example TouchScreen")
     ts.show()
     ts.display_image("left", 8)

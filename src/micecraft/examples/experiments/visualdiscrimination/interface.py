@@ -123,7 +123,7 @@ class VisualRoom:
         self.ts: WTouchScreen = WTouchScreen(
             room_shift[0] + gate_pos[0] + 1,
             gate_pos[1],
-            "vertical",
+            "right",
             self.parent,
         )
         self.ts.setName(name + "_TS")
