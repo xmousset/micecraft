@@ -121,12 +121,15 @@ class VisualRoom:
         self.wp.setName(name + "_WP")
 
         self.ts: WTouchScreen = WTouchScreen(
-            room_shift[0] + gate_pos[0],
-            room_shift[1] + gate_pos[1],
-            90,
+            room_shift[0] + gate_pos[0] + 1,
+            gate_pos[1],
+            "vertical",
             self.parent,
         )
         self.ts.setName(name + "_TS")
+        if orientation == "horizontal":
+            w, h = self.ts.width(), self.ts.height()
+            self.ts.resize(h, w)
 
         VisualRoom.ALL.append(self)
 
