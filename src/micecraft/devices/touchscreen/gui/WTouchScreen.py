@@ -104,18 +104,18 @@ class WTouchScreen(QWidget):
                 self.orientation = "horizontal"
             case "bottom":
                 dx = 0
-                dy = -1
+                dy = 0
                 self.orientation = "horizontal"
             case "left":
-                dx = -1
-                dy = 0
+                dx = 0.5
+                dy = 0.5
                 self.orientation = "vertical"
             case "right":
-                dx = 1
-                dy = 0
+                dx = 1.5
+                dy = 0.5
                 self.orientation = "vertical"
 
-        self.xy_pos = (x * 200 + 100 * (1 + dx), y * 200 + 100 * (1 + dy))
+        self.xy_pos = ((x + dx) * 200, (y + dy) * 200)
         self.block_wall = block_wall
         _, _, ww, wh = self.get_rect("widget")
         if self.orientation == "horizontal":
@@ -123,11 +123,11 @@ class WTouchScreen(QWidget):
             geo_dy = (100 - wh) // 2
         else:
             geo_dx = (100 - wh) // 2
-            geo_dy = -ww // 2
+            geo_dy = ww // 2
 
         self.setGeometry(
-            int(self.xy_pos[0]) - ww // 2,
-            int(self.xy_pos[1]) + (100 - wh) // 2,
+            int(self.xy_pos[0]) + geo_dx,
+            int(self.xy_pos[1]) + geo_dy,
             ww,
             wh,
         )
@@ -149,9 +149,12 @@ class WTouchScreen(QWidget):
 
     def get_rect(
         self,
-        box: Literal["left", "right", "full", "widget", "name"] | str,
+        box: str,
     ) -> tuple[int, int, int, int]:
-        """(x, y, width, height)"""
+        """(x, y, width, height)
+
+        box: "left", "right", "full", "name", "contour", "widget"
+        """
         W, H = WTouchScreen.WIDGET_SIZE
         margin = 6
 
@@ -176,6 +179,11 @@ class WTouchScreen(QWidget):
                 y = 0
                 w = W - 2 * margin
                 h = 2 * margin
+            case "contour":
+                x = 1
+                y = 1
+                w = W - 2
+                h = H - 2
             case _:
                 x = 0
                 y = 0
@@ -330,6 +338,10 @@ class WTouchScreen(QWidget):
 
         # background
         p.fillRect(*self.get_rect("widget"), WTouchScreen.BG_COLOR)
+
+        # contour
+        p.setPen(QPen(WTouchScreen.BG_COLOR.darker(200), 2))
+        p.drawRect(*self.get_rect("contour"))
 
         # disabled overlay
         if self.touchscreen is not None and not self.touchscreen.enabled:
