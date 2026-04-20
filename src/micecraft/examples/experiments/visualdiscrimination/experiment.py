@@ -1088,8 +1088,6 @@ class VisualDiscriminationExperiment:
 
         # ================ EXPERIMENT ================
 
-        WaitForAllThreads()
-
         # experiment settings
         # ----------------
         self.info = ExperimentSettings()

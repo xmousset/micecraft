@@ -81,16 +81,18 @@ def get_experiment_parameters():
 
 if __name__ == "__main__":
     print("*** Start of program ***")
+    experiment_parameters = get_experiment_parameters()
+
     sys.excepthook = excepthook
     app = QApplication([])
 
     visualExperiment = VisualDiscriminationInterface()
     app.aboutToQuit.connect(visualExperiment.shutdown)
-    experiment = VisualDiscriminationExperiment(*get_experiment_parameters())
+
+    experiment = VisualDiscriminationExperiment(*experiment_parameters)
+
     visualExperiment.start(experiment)
     visualExperiment.show()
-    visualExperiment.raise_()
-    # visualExperiment.activateWindow()
 
     sys.exit(app.exec())
 

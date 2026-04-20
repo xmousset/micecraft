@@ -509,6 +509,8 @@ class VisualDiscriminationInterface(QWidget):
 
         self.visualStorageAlarm = VisualStorageAlarm()
 
+        self.raise_()
+
 
 def excepthook(type_, value, traceback_):
     traceback.print_exception(type_, value, traceback_)

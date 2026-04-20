@@ -454,6 +454,7 @@ class WTouchScreen(QWidget):
 
         if self.touchscreen is None:
             self.current_display.append(img)
+            self.current_display.append(img)
         else:
             self.touchscreen.setXYImage(
                 img["name"],
@@ -474,9 +475,13 @@ class WTouchScreen(QWidget):
         ]
         for img in img_to_remove:
             if self.touchscreen is None:
-                self.current_display.remove(img)
+                self.current_display = [
+                    img
+                    for img in self.current_display
+                    if side not in img["name"]
+                ]
             else:
-                self.simulate_remove_xy_image(img)
+                self.touchscreen.removeXYImage(img["name"])
         self.update()
 
     def touch_at(self, side: str):
@@ -487,12 +492,6 @@ class WTouchScreen(QWidget):
         self.indicators.append(WTouchPointIndicator((x, y), self.update))
         self.simulate_touch_event(side)
         self.update()
-
-    def simulate_remove_xy_image(self, img: dict[str, Any]):
-        """Simulate a 'removeImage' event on the given side ('left' or 'right')."""
-        if self.touchscreen is None:
-            return
-        self.touchscreen.removeXYImage(img["name"])
 
     def simulate_touch_event(self, side: str, id: int | None = None):
         """Fire a synthetic 'symbol xy touched' event through the device."""
