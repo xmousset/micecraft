@@ -93,6 +93,12 @@ class WTouchScreen(QWidget):
         1: "FLOWER",
         0: "PLANE",
     }
+    IMG_DICT: dict[int, str] = {
+        8: "",
+        7: "",
+        1: "✿",
+        0: "✈",
+    }
 
     BG_COLOR = QColor(220, 220, 220)
     LIGHT_COLOR = QColor(255, 133, 194)
@@ -331,7 +337,7 @@ class WTouchScreen(QWidget):
             font = QFont("Calibri", 13)
             font.setBold(False)
             p.setFont(font)
-            self.draw_text(p, self.get_rect("full"), "<i>DISABLED</i>")
+            self.draw_text(p, self.get_rect("full"), "DISABLED")
 
         # display touch indicators
         all_indicators = self.indicators.copy()
@@ -449,7 +455,14 @@ class WTouchScreen(QWidget):
         if self.touchscreen is None:
             self.current_display.append(img)
         else:
-            self.touchscreen.setXYImage(*img.values())
+            self.touchscreen.setXYImage(
+                img["name"],
+                img["id"],
+                img["centerX"],
+                img["centerY"],
+                img["rotation"],
+                img["scale"],
+            )
         self.update()
 
     def clear_image(self, side: str):
