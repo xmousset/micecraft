@@ -1,0 +1,88 @@
+import sys
+import traceback
+
+from PyQt6.QtWidgets import QApplication
+
+from micecraft.devices.gate.Gate import Gate, GateOrder
+from micecraft.devices.waterpump.WaterPump import WaterPump
+from micecraft.devices.touchscreen.TouchScreen import TouchScreen
+
+from micecraft.soft.camera_recorder.CameraRecorder import CameraRecorder
+from micecraft.devices.roomSensor.RoomSensorDigest import RoomSensorDigest
+from micecraft.examples.experiments.visualdiscrimination.experiment import (
+    Criteria,
+    Phase,
+    Room,
+    TSImage,
+    VisualDiscriminationExperiment,
+)
+from micecraft.examples.experiments.visualdiscrimination.interface import (
+    excepthook,
+    VisualDiscriminationInterface,
+)
+
+# ================ EXPERIMENT SETUP ================
+
+# Images
+# ----------------
+images_to_attribute = [TSImage.PLANE, TSImage.FLOWER]
+
+# Phases creation
+# ----------------
+Phase(
+    "BLACK_WHITE",
+    1,
+    Criteria(min_rewards=10, min_trials=50),
+    force_correct_image=TSImage.LIGHT,
+)
+Phase("FLOWER_PLANE", 2, Criteria(accuracy=(0.8, 50)))
+Phase("REVERSAL", 3, Criteria(accuracy=(0.8, 50)), use_opposite=True)
+Phase("END", 4, Criteria(), force_correct_image=TSImage.DARK)
+
+# Room creation
+# ----------------
+wp_alpha = WaterPump(comPort="COM22")
+ts_alpha = TouchScreen(comPort="COM20")
+gate_alpha = Gate(
+    COM_Servo="COM36",
+    COM_Arduino="COM30",
+    COM_RFID="COM27",
+    weightFactor=0.6,
+    mouseAverageWeight=25,
+)
+gate_alpha.setOrder(
+    GateOrder.ONLY_ONE_ANIMAL_IN_B,
+    options=["no rfid check on return"],
+)
+
+Room(
+    name="rA",
+    gate=gate_alpha,
+    touchscreen=ts_alpha,
+    waterpump=wp_alpha,
+)
+
+# Global recording
+# ----------------
+cam_recorder = CameraRecorder(
+    deviceNumber=0, bufferDurationS=50, showStream=True
+)  # camera recorder for saving videos
+
+RoomSensorDigest(
+    comPort="COM25", delayS=5 * 60
+)  # room sensors (get data every 5 minutes)
+
+# ================ APPLICATION SETUP ================
+print("*** Start of program ***")
+sys.excepthook = excepthook
+app = QApplication([])
+
+visualExperiment = VisualDiscriminationInterface()
+app.aboutToQuit.connect(visualExperiment.shutdown)
+experiment = VisualDiscriminationExperiment(images_to_attribute)
+visualExperiment.start(experiment)
+visualExperiment.show()
+
+sys.exit(app.exec())
+
+print("*** End of program ***")

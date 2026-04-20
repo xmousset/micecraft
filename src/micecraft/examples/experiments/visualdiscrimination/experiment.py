@@ -629,8 +629,6 @@ class Room:
     def __init__(
         self,
         name: str,
-        expe_data_saver: Callable,
-        video_recorder: Callable | None,
         gate: Gate,
         touchscreen: TouchScreen,
         waterpump: WaterPump,
@@ -647,11 +645,11 @@ class Room:
         self.animal_in: Animal | None = None
         """Animal currently in the room, None if no animal."""
 
-        self.expe_data_saver: Callable = expe_data_saver
+        self.expe_data_saver: Callable | None = None
         """Function to call to save all experiment data (not just room data).
         Used after each trial outcome."""
 
-        self.video_recorder: Callable | None = video_recorder
+        self.video_recorder: Callable | None = None
         """Function to call to record a video of the animal."""
 
         self.running_timers: list[Timer] = []
@@ -687,9 +685,6 @@ class Room:
             self.gate.addDeviceListener(self.gate_listener)
         self.gate.setSpeedAndTorqueLimits(140, 140)
         self.gate.weightFactor = 0.6  # type: ignore
-        self.gate.setOrder(
-            GateOrder.ONLY_ONE_ANIMAL_IN_B, options=["no rfid check on return"]
-        )
         if display_log:
             logging.info(
                 "[init_hardware] "
@@ -781,7 +776,8 @@ class Room:
                     self.video_recorder(self.animal_in, True)
                 self.set_success_state(1)
                 self.animal_in.add_trial(True)
-                self.expe_data_saver()
+                if self.expe_data_saver:
+                    self.expe_data_saver()
 
             if str(correct_image.get_opposite()) in event.description:
                 logging.info(
@@ -797,7 +793,8 @@ class Room:
                     self.video_recorder(self.animal_in, False)
                 self.set_fail_state(10)
                 self.animal_in.add_trial(False)
-                self.expe_data_saver()
+                if self.expe_data_saver:
+                    self.expe_data_saver()
 
     def waterpump_listener(self, event: DeviceEvent):
         """Function called by the waterpump when it fires an event."""
@@ -1002,7 +999,8 @@ class Room:
                 f"room: {str(self)} "
                 f"animal: {self.animal_in.rfid} "
             )
-        self.expe_data_saver()
+        if self.expe_data_saver:
+            self.expe_data_saver()
         self.animal_in = None
         self.init_room(display_log=False)  # unplugged management
 
@@ -1031,7 +1029,8 @@ class Room:
         """Grab the phase of animal. Update room depending on animal phase
         (basically the state where the mouse have a trial set up).
         """
-        self.expe_data_saver()
+        if self.expe_data_saver:
+            self.expe_data_saver()
 
         if self.animal_in is None:
             self.log_animal_in_error("set_trial_state")
@@ -1048,57 +1047,43 @@ class Room:
 class VisualDiscriminationExperiment:
     """Class that handle the whole touchscreen experiment."""
 
-    def __init__(self):
+    def __init__(
+        self,
+        images_to_attribute: list[TSImage],
+        sensors: RoomSensorDigest | None = None,
+        camera_recorder: CameraRecorder | None = None,
+    ):
         """Initialise the touchscreen experiment, with all hardware and
         parameters setup.
 
         Parameters
         ----------
         images_to_attribute : list of TSImage
-            The images to attribute to the animals. If auto_random_attribution
-            is True, those images will be given at random but with an equal
-            distribution of them (list is randomized and then given to new
-            animal in order, list is shuffle again when end is reached).
+            The images to assign to the animals. If auto_random_attribution
+            is True (prompted at experiment start), images are assigned
+            randomly with equal distribution: the list is shuffled and
+            assigned to new animals in order, then reshuffled once the
+            end of the list is reached.
         """
 
         # ================ EXPERIMENT PARAMETERS ================
 
-        # Phases creation
+        # Input images
         # ----------------
-        Phase(
-            "BLACK_WHITE",
-            1,
-            Criteria(min_rewards=10, min_trials=50),
-            force_correct_image=TSImage.LIGHT,
-        )
-        Phase("FLOWER_PLANE", 2, Criteria(accuracy=(0.8, 50)))
-        Phase("REVERSAL", 3, Criteria(accuracy=(0.8, 50)), use_opposite=True)
-        Phase("END", 4, Criteria(), force_correct_image=TSImage.DARK)
-        # Room creation
-        # ----------------
-        wp_alpha = WaterPump(comPort="COM22")
-        ts_alpha = TouchScreen(comPort="COM20")
-        gate_alpha = Gate(
-            COM_Servo="COM36",
-            COM_Arduino="COM30",
-            COM_RFID="COM27",
-            weightFactor=0.6,
-            mouseAverageWeight=25,
-        )
-
-        Room(
-            name="rA",
-            expe_data_saver=self.save_animals_data,
-            video_recorder=self.record_video,
-            gate=gate_alpha,
-            touchscreen=ts_alpha,
-            waterpump=wp_alpha,
-        )
-
-        # Images choice
-        # ----------------
-        self.experiment_ts_images = [TSImage.PLANE, TSImage.FLOWER]
+        self.images_to_attribute = images_to_attribute
         """List of images that must be attributed to the animals."""
+
+        # Room devices
+        # ----------------
+        for room in Room.ALL:
+            room.expe_data_saver = self.save_animals_data
+            room.video_recorder = self.record_video
+            room.set_gate_listener(self.gate_listener)
+
+        # Global devices
+        # ----------------
+        self.cam_recorder = camera_recorder
+        self.sensors = sensors
 
         # ================ EXPERIMENT ================
 
@@ -1152,19 +1137,6 @@ class VisualDiscriminationExperiment:
                 f"progression: {' '.join(animal.progression_display)}"
             )
 
-        # Global devices
-        # ----------------
-        self.camRecorder = CameraRecorder(
-            deviceNumber=0, bufferDurationS=50, showStream=True
-        )  # camera recorder for saving videos
-        self.roomSensorDigest = RoomSensorDigest(
-            comPort="COM25", delayS=5 * 60
-        )  # room sensors (get data every 5 minutes)
-
-        # Rooms
-        # ----------------
-        for room in Room.ALL:
-            room.set_gate_listener(self.gate_listener)
         self.init_experiment()
 
         logging.info("application started")
@@ -1180,24 +1152,27 @@ class VisualDiscriminationExperiment:
             room.init_room()
 
         if (
-            self.room_sensor_listener
-            not in self.roomSensorDigest.deviceListenerList
+            self.sensors
+            and self.room_sensor_listener
+            not in self.sensors.deviceListenerList
         ):
-            self.roomSensorDigest.addDeviceListener(self.room_sensor_listener)
-        self.roomSensorDigest.delayS = 5 * 60
-        logging.info(
-            "[init_sensors] "
-            f"device: {type(self.roomSensorDigest).__name__} "
-            f"COM_PORT: {self.roomSensorDigest.comPort} "
-        )
+            self.sensors.addDeviceListener(self.room_sensor_listener)
+            self.sensors.delayS = 5 * 60
+            logging.info(
+                "[init_sensors] "
+                f"device: {type(self.sensors).__name__} "
+                f"COM_PORT: {self.sensors.comPort} "
+            )
 
     def shutdown_experiment(self):
         """Shutdown all systems."""
         for room in Room.ALL:
             room.shutdown_room()
 
-        self.camRecorder.shutdown()
-        self.roomSensorDigest.shutdown()
+        if self.cam_recorder:
+            self.cam_recorder.shutdown()
+        if self.sensors:
+            self.sensors.shutdown()
 
         WaitForAllThreads()
 
@@ -1210,6 +1185,12 @@ class VisualDiscriminationExperiment:
             The result of the trial. It will be written on the video.
             If None, indicates that there is no good answer for this trial.
         """
+        if self.cam_recorder is None:
+            logging.info(
+                "[warning] [video_recording] " "camera_recorder: NOT_SET "
+            )
+            return
+
         if result is None:
             txt = "Trial without answer"
             specific_color = (255, 0, 0)
@@ -1246,11 +1227,13 @@ class VisualDiscriminationExperiment:
             )
         )
 
-        self.camRecorder.delayedSave(
+        self.cam_recorder.delayedSave(
             delayS=5,
             minDateTime=datetime.now() - timedelta(seconds=5),
             textList=text_list,
         )
+
+        logging.info("[video_recording] " f"video_text: {txt} ")
 
     def get_all_rfid(self):
         """Get all registered RFID in *animals* dictionary."""
@@ -1292,10 +1275,10 @@ class VisualDiscriminationExperiment:
             )
 
             if self.info.auto_random_attribution:
-                img_idx = len(all_rfid) % len(self.experiment_ts_images)
+                img_idx = len(all_rfid) % len(self.images_to_attribute)
                 if img_idx == 0:
-                    shuffle(self.experiment_ts_images)
-                choosen_image = self.experiment_ts_images[img_idx]
+                    shuffle(self.images_to_attribute)
+                choosen_image = self.images_to_attribute[img_idx]
                 self.animals[rfid].correct_image = choosen_image
             else:
                 self.animals[rfid].correct_image = TSImage.NONE
@@ -1407,8 +1390,72 @@ class VisualDiscriminationExperiment:
         # animal weight ?
 
 
+# ================ EXAMPLE EXPERIMENT ================
+def setup_example_experiment():
+    """Set up the example experiment parameters.
+    - create a room (rA) with its devices (gate, touchscreen and waterpump)
+    - create all 4 phases (BLACK_WHITE, FLOWER_PLANE, REVERSAL, END)
+    - return the list of images to attribute to the animals
+
+    The rooms and phases created are accessible in the lists `Room.ALL` and
+    `Phase.ALL`, and the images to attribute are used as input for the
+    `VisualDiscriminationExperiment` class.
+    """
+
+    # Images
+    # ----------------
+    images_to_attribute = [TSImage.PLANE, TSImage.FLOWER]
+
+    # Phases creation
+    # ----------------
+    Phase(
+        "BLACK_WHITE",
+        1,
+        Criteria(min_rewards=10, min_trials=50),
+        force_correct_image=TSImage.LIGHT,
+    )
+    Phase("FLOWER_PLANE", 2, Criteria(accuracy=(0.8, 50)))
+    Phase("REVERSAL", 3, Criteria(accuracy=(0.8, 50)), use_opposite=True)
+    Phase("END", 4, Criteria(), force_correct_image=TSImage.DARK)
+
+    # Room creation
+    # ----------------
+    wp_alpha = WaterPump(comPort="COM22")
+    ts_alpha = TouchScreen(comPort="COM20")
+    gate_alpha = Gate(
+        COM_Servo="COM36",
+        COM_Arduino="COM30",
+        COM_RFID="COM27",
+        weightFactor=0.6,
+        mouseAverageWeight=25,
+    )
+    gate_alpha.setOrder(
+        GateOrder.ONLY_ONE_ANIMAL_IN_B,
+        options=["no rfid check on return"],
+    )
+
+    Room(
+        name="rA",
+        gate=gate_alpha,
+        touchscreen=ts_alpha,
+        waterpump=wp_alpha,
+    )
+
+    # Global recording
+    # ----------------
+    cam_recorder = CameraRecorder(
+        deviceNumber=0, bufferDurationS=50, showStream=True
+    )  # camera recorder for saving videos
+
+    sensors = RoomSensorDigest(
+        comPort="COM25", delayS=5 * 60
+    )  # room sensors (get data every 5 minutes)
+
+    return images_to_attribute, sensors, cam_recorder
+
+
 if __name__ == "__main__":
 
     print("Starting experiment...")
-    expe = VisualDiscriminationExperiment()
+    example = VisualDiscriminationExperiment(*setup_example_experiment())
     print("...Ending experiment.")

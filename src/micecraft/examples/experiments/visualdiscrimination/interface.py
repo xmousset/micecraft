@@ -32,8 +32,9 @@ from micecraft.soft.gui.WMouse import WMouse
 from micecraft.soft.gui.VisualStorageAlarm import VisualStorageAlarm
 
 from micecraft.examples.experiments.visualdiscrimination.experiment import (
-    VisualDiscriminationExperiment,
+    setup_example_experiment,
     TSImage,
+    VisualDiscriminationExperiment,
 )
 
 
@@ -482,9 +483,9 @@ class VisualDiscriminationInterface(QWidget):
         else:
             logging.info(f"[user_action] name: ACTION_CANCELED")
 
-    def start(self):
+    def start(self, experiment: VisualDiscriminationExperiment):
         """Initialise the application."""
-        self.experiment = VisualDiscriminationExperiment()
+        self.experiment = experiment
 
         romm_names = [room.name for room in self.experiment.get_all_rooms()]
         VisualRoom(
@@ -521,8 +522,8 @@ if __name__ == "__main__":
 
     visualExperiment = VisualDiscriminationInterface()
     app.aboutToQuit.connect(visualExperiment.shutdown)
-
-    visualExperiment.start()
+    experiment = VisualDiscriminationExperiment(*setup_example_experiment())
+    visualExperiment.start(experiment)
     visualExperiment.show()
 
     sys.exit(app.exec())
