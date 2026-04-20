@@ -654,11 +654,6 @@ class Room:
         self.video_recorder: Callable | None = video_recorder
         """Function to call to record a video of the animal."""
 
-        self.action_enabled: bool = False
-        """Whether the animal actions are enabled or not (used for example to
-        avoid taking into account touchscreen touches during the inter-trial
-        interval)."""
-
         self.running_timers: list[Timer] = []
         """List of currently running timers."""
 
@@ -744,6 +739,14 @@ class Room:
     def touchscreen_listener(self, event: DeviceEvent):
         """Function called by the touchscreen when it fires an event."""
         logging.info(f"[touchscreen_event] event: {event.description} ")
+
+        if not self.ts.enabled:
+            logging.info(
+                "[warning] [touchscreen_event] "
+                f"room-device: {self.ts.name} "
+                f"touchscreen: DISABLED "
+            )
+            return
 
         if self.animal_in is None:
             self.log_animal_in_error("touchscreen_listener")
@@ -1037,7 +1040,7 @@ class Room:
         self.clear_state()
 
         self.ts_random_display(self.animal_in.get_correct_image())
-        self.action_enabled = True
+        self.ts.enabled = True
 
         logging.info(f"[room_state] room: {str(self)} state: TRIAL")
 
