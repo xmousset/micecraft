@@ -1,4 +1,4 @@
-﻿from typing import Callable, Literal
+﻿from typing import Any, Callable, Literal
 
 from PyQt6 import QtWidgets, QtGui
 from PyQt6.QtGui import QPaintEvent, QPainter, QFont, QPen, QColor
@@ -54,6 +54,11 @@ class WTouchPointIndicator:
             (x, y - self.size, x, y + self.size),
         ]
 
+    def __eq__(self, other):
+        if not isinstance(other, WTouchPointIndicator):
+            return False
+        return self.screen_pos == other.screen_pos
+
     def start_timer(self):
         self.timer.start(self.visible_time)
 
@@ -90,7 +95,7 @@ class WTouchScreen(QWidget):
     }
 
     BG_COLOR = QColor(220, 220, 220)
-    LIGHT_COLOR = QColor(60, 180, 240)  # QColor(233, 233, 133)
+    LIGHT_COLOR = QColor(255, 133, 194)
     DARK_COLOR = QColor(33, 33, 33)
 
     def __init__(
@@ -136,19 +141,12 @@ class WTouchScreen(QWidget):
             wh,
         )
 
+        self.current_display: list[dict[str, Any]] = []
         self.touchscreen = None
         self.name = "WTS"
 
         self.visualDeviceAlarmStatus = VisualDeviceAlarmStatus()
 
-        self.img_id: dict[str, int | None] = {
-            "left": None,
-            "right": None,
-        }
-        self.img_name: dict[str, str | None] = {
-            "left": None,
-            "right": None,
-        }
         self.indicators: list[WTouchPointIndicator] = []
 
     def get_rect(
@@ -214,59 +212,18 @@ class WTouchScreen(QWidget):
         ts.addDeviceListener(self.widget_touchscreen_listener)
         self.update()
 
+    def get_current_display(self):
+        if self.touchscreen is None:
+            return self.current_display
+        else:
+            return self.touchscreen.getCurrentImageList()
+
     # ================ Device Listener ================
 
     def widget_touchscreen_listener(self, event: DeviceEvent):
         desc = event.description
 
-        if "setImage" in desc:
-            # data = (id, x, y)
-            data = desc.split(" ")[1:]
-            id, x, y = data
-
-            if float(x) < self.SCREEN_SIZE[0] / 2:
-                side = "left"
-            else:
-                side = "right"
-            self.img_id[side] = int(id)
-
-        if "removeImage" in desc:
-            # data = (x, y)
-            data = desc.split(" ")[1:]
-            x, y = data
-
-            if float(x) < self.SCREEN_SIZE[0] / 2:
-                side = "left"
-            else:
-                side = "right"
-
-            self.img_id[side] = None
-
-        if "setXYImage" in desc:
-            # data = (name, id, centerX, centerY, rotation, scale)
-            name = event.data[0]  # type: ignore
-            id = event.data[1]  # type: ignore
-            cx = event.data[2]  # type: ignore
-
-            if cx < self.SCREEN_SIZE[0] / 2:
-                side = "left"
-            else:
-                side = "right"
-
-            self.img_id[side] = id
-            self.img_name[side] = name
-
-        if "removeXYImage" in desc:
-            # data = (name,)
-            name = event.data[0]  # type: ignore
-            if name == self.img_name["left"]:
-                side = "left"
-            elif name == self.img_name["right"]:
-                side = "right"
-            else:
-                return
-            self.img_id[side] = None
-            self.img_name[side] = None
+        pos = None
 
         if "symbol touched" in desc:
             # data = (id, x, y, xf, yf)
@@ -274,7 +231,6 @@ class WTouchScreen(QWidget):
             if self.orientation == "vertical":
                 x, y = -y, x
             pos = (x, y)
-            self.indicators.append(WTouchPointIndicator(pos, self.update))
 
         if "symbol xy touched" in desc:
             # data = (name, id, x, y, xf, yf)
@@ -282,20 +238,19 @@ class WTouchScreen(QWidget):
             if self.orientation == "vertical":
                 x, y = -y, x
             pos = (x, y)
-            self.indicators.append(WTouchPointIndicator(pos, self.update))
 
-        elif "missed" in desc:
+        if "missed" in desc:
             # data = (xf, yf)
             x, y = event.data  # type: ignore
             if self.orientation == "vertical":
                 x, y = -y, x
             pos = (x, y)
-            self.indicators.append(WTouchPointIndicator(pos, self.update))
 
-        if "clear" in desc:
-            for side in ["left", "right"]:
-                self.img_id[side] = None
-                self.img_name[side] = None
+        if pos is not None:
+            indicator = WTouchPointIndicator(pos, self.update)
+            if indicator in self.indicators:
+                self.indicators.remove(indicator)
+            self.indicators.append(indicator)
 
         self.update()
 
@@ -340,38 +295,43 @@ class WTouchScreen(QWidget):
         p.setPen(QPen(WTouchScreen.BG_COLOR.darker(200), 2))
         p.drawRect(*self.get_rect("contour"))
 
-        # disabled overlay
-        if self.touchscreen is not None and not self.touchscreen.enabled:
-            p.setPen(WTouchScreen.DARK_COLOR)
-            font = QFont("Calibri", 16)
+        # display images
+        for img in self.get_current_display():
+            if img["type"] != "xy":
+                continue
+
+            name = self.NAME_DICT.get(img["id"], f"UNKNOWN")
+            img_clr = (
+                WTouchScreen.DARK_COLOR
+                if img["id"] == 8
+                else WTouchScreen.LIGHT_COLOR
+            )
+
+            if img["centerX"] < WTouchScreen.SCREEN_SIZE[0] / 2:
+                side = "left"
+            else:
+                side = "right"
+
+            p.fillRect(*self.get_rect(side), img_clr)
+
+            pen_clr = (
+                WTouchScreen.LIGHT_COLOR
+                if img_clr == WTouchScreen.DARK_COLOR
+                else WTouchScreen.DARK_COLOR
+            )
+            p.setPen(pen_clr)
+            font = QFont("Calibri", 11)
             font.setBold(True)
             p.setFont(font)
-            self.draw_text(p, self.get_rect("full"), "DISABLED")
-        else:
-            # display images
-            for side in ["left", "right"]:
-                id = self.img_id[side]
-                if id is None:
-                    continue
-                name = self.NAME_DICT.get(id, f"UNKNOWN")
-                img_clr = (
-                    WTouchScreen.DARK_COLOR
-                    if id == 8
-                    else WTouchScreen.LIGHT_COLOR
-                )
+            self.draw_text(p, self.get_rect(side), name)
 
-                p.fillRect(*self.get_rect(side), img_clr)
-
-                pen_clr = (
-                    WTouchScreen.LIGHT_COLOR
-                    if img_clr == WTouchScreen.DARK_COLOR
-                    else WTouchScreen.DARK_COLOR
-                )
-                p.setPen(pen_clr)
-                font = QFont("Calibri", 11)
-                font.setBold(True)
-                p.setFont(font)
-                self.draw_text(p, self.get_rect(side), name)
+        if self.touchscreen is not None and not self.touchscreen.enabled:
+            # disabled DISABLED
+            p.setPen(WTouchScreen.BG_COLOR.darker(200))
+            font = QFont("Calibri", 13)
+            font.setBold(False)
+            p.setFont(font)
+            self.draw_text(p, self.get_rect("full"), "<i>DISABLED</i>")
 
         # display touch indicators
         all_indicators = self.indicators.copy()
@@ -470,17 +430,40 @@ class WTouchScreen(QWidget):
         img_id."""
         if side not in ["left", "right"]:
             return
-        self.img_id[side] = img_id
-        self.simulate_set_xy_image(side, img_id)
+
+        cx = WTouchScreen.SCREEN_SIZE[0] / 2
+        cx += -400 if side == "left" else 400
+        cy = 750
+        name = f"simulation_{side}_image_{WTouchScreen.NAME_DICT[img_id]}"
+
+        img = {
+            "name": name,
+            "type": "xy",
+            "id": img_id,
+            "centerX": cx,
+            "centerY": cy,
+            "rotation": 0,
+            "scale": 1,
+        }
+
+        if self.touchscreen is None:
+            self.current_display.append(img)
+        else:
+            self.touchscreen.setXYImage(*img.values())
         self.update()
 
     def clear_image(self, side: str):
         """Clear the image on the given side ('left' or 'right')."""
         if side not in ["left", "right"]:
             return
-        self.img_id[side] = None
-        self.img_name[side] = None
-        self.simulate_remove_xy_image(side)
+        img_to_remove = [
+            img for img in self.get_current_display() if side in img["name"]
+        ]
+        for img in img_to_remove:
+            if self.touchscreen is None:
+                self.current_display.remove(img)
+            else:
+                self.simulate_remove_xy_image(img)
         self.update()
 
     def touch_at(self, side: str):
@@ -492,32 +475,11 @@ class WTouchScreen(QWidget):
         self.simulate_touch_event(side)
         self.update()
 
-    def simulate_set_xy_image(self, side: str, img_id: int):
-        """Simulate a 'setImage' event on the given side ('left' or 'right')
-        with the given img_id."""
-        if self.touchscreen is None:
-            return
-        x = WTouchScreen.SCREEN_SIZE[0] / 2
-        x += -400 if side == "left" else 400
-        y = 750
-        name = f"{side}_image_{WTouchScreen.NAME_DICT[img_id]}"
-        self.touchscreen.setXYImage(
-            name,
-            img_id,
-            x,
-            y,
-            0,
-            1,
-        )
-
-    def simulate_remove_xy_image(self, side: str):
+    def simulate_remove_xy_image(self, img: dict[str, Any]):
         """Simulate a 'removeImage' event on the given side ('left' or 'right')."""
         if self.touchscreen is None:
             return
-        name = self.img_name[side]
-        self.touchscreen.removeXYImage(name)
-        self.img_id[side] = None
-        self.img_name[side] = None
+        self.touchscreen.removeXYImage(img["name"])
 
     def simulate_touch_event(self, side: str, id: int | None = None):
         """Fire a synthetic 'symbol xy touched' event through the device."""
