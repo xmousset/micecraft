@@ -21,68 +21,77 @@ from micecraft.examples.experiments.visualdiscrimination.interface import (
     VisualDiscriminationInterface,
 )
 
-# ================ EXPERIMENT SETUP ================
 
-# Images
-# ----------------
-images_to_attribute = [TSImage.PLANE, TSImage.FLOWER]
+# ================ EXPERIMENT PARAMETERS ================
+def get_experiment_parameters():
 
-# Phases creation
-# ----------------
-Phase(
-    "BLACK_WHITE",
-    1,
-    Criteria(min_rewards=10, min_trials=50),
-    force_correct_image=TSImage.LIGHT,
-)
-Phase("FLOWER_PLANE", 2, Criteria(accuracy=(0.8, 50)))
-Phase("REVERSAL", 3, Criteria(accuracy=(0.8, 50)), use_opposite=True)
-Phase("END", 4, Criteria(), force_correct_image=TSImage.DARK)
+    # Images
+    # ----------------
+    images_to_attribute = [TSImage.PLANE, TSImage.FLOWER]
 
-# Room creation
-# ----------------
-wp_alpha = WaterPump(comPort="COM22")
-ts_alpha = TouchScreen(comPort="COM20")
-gate_alpha = Gate(
-    COM_Servo="COM36",
-    COM_Arduino="COM30",
-    COM_RFID="COM27",
-    weightFactor=0.6,
-    mouseAverageWeight=25,
-)
-gate_alpha.setOrder(
-    GateOrder.ONLY_ONE_ANIMAL_IN_B,
-    options=["no rfid check on return"],
-)
+    # Phases creation
+    # ----------------
+    Phase(
+        "BLACK_WHITE",
+        1,
+        Criteria(min_rewards=10, min_trials=50),
+        force_correct_image=TSImage.LIGHT,
+    )
+    Phase("FLOWER_PLANE", 2, Criteria(accuracy=(0.8, 50)))
+    Phase("REVERSAL", 3, Criteria(accuracy=(0.8, 50)), use_opposite=True)
+    Phase("END", 4, Criteria(), force_correct_image=TSImage.DARK)
 
-Room(
-    name="rA",
-    gate=gate_alpha,
-    touchscreen=ts_alpha,
-    waterpump=wp_alpha,
-)
+    # Room creation
+    # ----------------
+    wp_alpha = WaterPump(comPort="COM22")
+    ts_alpha = TouchScreen(comPort="COM20")
+    gate_alpha = Gate(
+        COM_Servo="COM36",
+        COM_Arduino="COM30",
+        COM_RFID="COM27",
+        weightFactor=0.6,
+        mouseAverageWeight=25,
+    )
+    gate_alpha.setOrder(
+        GateOrder.ONLY_ONE_ANIMAL_IN_B,
+        options=["no rfid check on return"],
+    )
 
-# Global recording
-# ----------------
-cam_recorder = CameraRecorder(
-    deviceNumber=0, bufferDurationS=50, showStream=True
-)  # camera recorder for saving videos
+    Room(
+        name="rA",
+        gate=gate_alpha,
+        touchscreen=ts_alpha,
+        waterpump=wp_alpha,
+    )
 
-RoomSensorDigest(
-    comPort="COM25", delayS=5 * 60
-)  # room sensors (get data every 5 minutes)
+    # Global recording
+    # ----------------
+    cam_recorder = CameraRecorder(
+        deviceNumber=0, bufferDurationS=50, showStream=True
+    )  # for saving videos
 
-# ================ APPLICATION SETUP ================
-print("*** Start of program ***")
-sys.excepthook = excepthook
-app = QApplication([])
+    sensors = RoomSensorDigest(
+        comPort="COM25", delayS=5 * 60
+    )  # get environment data every 5 minutes
 
-visualExperiment = VisualDiscriminationInterface()
-app.aboutToQuit.connect(visualExperiment.shutdown)
-experiment = VisualDiscriminationExperiment(images_to_attribute)
-visualExperiment.start(experiment)
-visualExperiment.show()
+    # RETURN
+    # ----------------
+    return images_to_attribute, sensors, cam_recorder
 
-sys.exit(app.exec())
 
-print("*** End of program ***")
+if __name__ == "__main__":
+    print("*** Start of program ***")
+    sys.excepthook = excepthook
+    app = QApplication([])
+
+    visualExperiment = VisualDiscriminationInterface()
+    app.aboutToQuit.connect(visualExperiment.shutdown)
+    experiment = VisualDiscriminationExperiment(*get_experiment_parameters())
+    visualExperiment.start(experiment)
+    visualExperiment.show()
+    visualExperiment.raise_()
+    # visualExperiment.activateWindow()
+
+    sys.exit(app.exec())
+
+    print("*** End of program ***")

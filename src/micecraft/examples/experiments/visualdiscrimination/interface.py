@@ -525,6 +525,7 @@ if __name__ == "__main__":
     experiment = VisualDiscriminationExperiment(*setup_example_experiment())
     visualExperiment.start(experiment)
     visualExperiment.show()
+    visualExperiment.raise_()
 
     sys.exit(app.exec())
 

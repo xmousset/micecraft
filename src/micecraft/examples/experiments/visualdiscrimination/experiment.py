@@ -1077,8 +1077,9 @@ class VisualDiscriminationExperiment:
         # ----------------
         for room in Room.ALL:
             room.expe_data_saver = self.save_animals_data
-            room.video_recorder = self.record_video
             room.set_gate_listener(self.gate_listener)
+            if camera_recorder:
+                room.video_recorder = self.record_video
 
         # Global devices
         # ----------------
@@ -1152,12 +1153,11 @@ class VisualDiscriminationExperiment:
             room.init_room()
 
         if (
-            self.sensors
+            self.sensors is not None
             and self.room_sensor_listener
             not in self.sensors.deviceListenerList
         ):
             self.sensors.addDeviceListener(self.room_sensor_listener)
-            self.sensors.delayS = 5 * 60
             logging.info(
                 "[init_sensors] "
                 f"device: {type(self.sensors).__name__} "
@@ -1169,9 +1169,9 @@ class VisualDiscriminationExperiment:
         for room in Room.ALL:
             room.shutdown_room()
 
-        if self.cam_recorder:
+        if self.cam_recorder is not None:
             self.cam_recorder.shutdown()
-        if self.sensors:
+        if self.sensors is not None:
             self.sensors.shutdown()
 
         WaitForAllThreads()
@@ -1445,11 +1445,12 @@ def setup_example_experiment():
     # ----------------
     cam_recorder = CameraRecorder(
         deviceNumber=0, bufferDurationS=50, showStream=True
-    )  # camera recorder for saving videos
+    )  # for saving videos
 
     sensors = RoomSensorDigest(
-        comPort="COM25", delayS=5 * 60
-    )  # room sensors (get data every 5 minutes)
+        comPort="COM25",
+        delayS=5 * 60,
+    )  # get environment data every 5 minutes
 
     return images_to_attribute, sensors, cam_recorder
 
