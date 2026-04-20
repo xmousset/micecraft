@@ -412,7 +412,7 @@ class Animal:
         self.trials_dic: dict[datetime, bool] = {}
         """Dict with datetime keys when animal performs a trial,
         True= success, False= fail."""
-        self.touched_left_dic: dict[datetime, bool] = {}
+        self.left_touch_dic: dict[datetime, bool] = {}
         """Dict with datetime keys when touchscreen is touched meaningfully,
         True= choose left, False= choose right."""
         self.rewards_dic: dict[datetime, bool] = {}
@@ -464,7 +464,7 @@ class Animal:
 
         dic["choice_left_dic"] = {
             self.datetime_to_str(date): result
-            for date, result in self.touched_left_dic.items()
+            for date, result in self.left_touch_dic.items()
         }
 
         dic["rewards_picked"] = {
@@ -508,7 +508,7 @@ class Animal:
             for date, result in dic["trials_dic"].items()
         }
 
-        instance.touched_left_dic = {
+        instance.left_touch_dic = {
             cls.str_to_datetime(date): result
             for date, result in dic["choice_left_dic"].items()
         }
@@ -531,10 +531,10 @@ class Animal:
         self.trials_dic[datetime.now()] = result
         self.progression_display = self.phase.criteria.get_progression(self)
 
-    def add_side_choice(self, choice_left: bool):
-        """Save a side choice in 'touched_left_dic', True if left, False
+    def add_side_choice(self, choose_left: bool):
+        """Save a side choice in 'left_touch_dic', True if left, False
         otherwise."""
-        self.touched_left_dic[datetime.now()] = choice_left
+        self.left_touch_dic[datetime.now()] = choose_left
 
     def add_picked_reward(self, picked: bool):
         """Save a reward picked in 'rewards_dic', True if picked, False
@@ -754,11 +754,11 @@ class Room:
             choice_str = "warning"
             if "left_image" in event.description:
                 choice_str = "left"
-                self.animal_in.add_side_choice(choice_left=True)
+                self.animal_in.add_side_choice(choose_left=True)
 
             if "right_image" in event.description:
                 choice_str = "right"
-                self.animal_in.add_side_choice(choice_left=False)
+                self.animal_in.add_side_choice(choose_left=False)
 
             correct_image = self.animal_in.phase.force_correct_image
             if correct_image is None:
