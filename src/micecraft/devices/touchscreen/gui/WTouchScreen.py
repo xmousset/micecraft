@@ -528,7 +528,7 @@ class WTouchScreen(QWidget):
         x = WTouchScreen.SCREEN_SIZE[0] / 2
         x += -400 if side == "left" else 400
         y = 750
-        name = side + "_simulation"
+        name = f"simulation_{side}_image_{WTouchScreen.NAME_DICT.get(id, '?')}"
         self.touchscreen.fireEvent(
             DeviceEvent(
                 "touchscreen",
