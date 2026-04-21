@@ -91,7 +91,7 @@ if __name__ == "__main__":
 
     experiment = VisualDiscriminationExperiment(*experiment_parameters)
 
-    visualExperiment.start(experiment)
+    visualExperiment.start(experiment)  # may need modifications
     visualExperiment.show()
 
     sys.exit(app.exec())
