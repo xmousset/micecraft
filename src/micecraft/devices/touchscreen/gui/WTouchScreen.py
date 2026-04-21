@@ -82,7 +82,10 @@ class WTouchPointIndicator:
         if not self.timer.isActive():
             return 0
         ratio = self.timer.remainingTime() / (self.visible_time * 1000)
-        return int(255 * ratio)
+        if ratio >= 0.5:
+            return 255
+        else:
+            return int(255 * ratio * 2)
 
 
 class WTouchScreen(QWidget):
@@ -509,33 +512,22 @@ class WTouchScreen(QWidget):
         menu.addAction(title)
         menu.addSeparator()
 
-        display_menu = QMenu("Display", menu)
-        menu.addMenu(display_menu)
-        display_left = QMenu("on left", display_menu)
-        display_menu.addMenu(display_left)
-        display_right = QMenu("on right", display_menu)
-        display_menu.addMenu(display_right)
+        display_left = QMenu("Display on left", menu)
+        menu.addMenu(display_left)
+        display_right = QMenu("Display on right", menu)
+        menu.addMenu(display_right)
 
-        remove_menu = QMenu("Remove", menu)
-        menu.addMenu(remove_menu)
-
-        touch_menu = QMenu("Touch", menu)
-        menu.addMenu(touch_menu)
-
-        action = QtGui.QAction("Clear All", menu)
+        action = QtGui.QAction("Clear Images", menu)
         menu.addAction(action)
         actions[action] = (self.clear_all_images, ())
 
-        action = QtGui.QAction("Print Display", menu)
+        action = QtGui.QAction("Touch left", menu)
         menu.addAction(action)
-        actions[action] = (
-            print,
-            tuple(map(lambda img: img["name"], self.get_current_display())),
-        )
+        actions[action] = (self.touch_on, ("left",))
 
-        action = QtGui.QAction("Print TouchScreen", menu)
+        action = QtGui.QAction("Touch right", menu)
         menu.addAction(action)
-        actions[action] = (print, tuple(self.get_current_display()))
+        actions[action] = (self.touch_on, ("right",))
 
         for img_id, img_name in WTouchScreen.NAME_DICT.items():
             action = QtGui.QAction(img_name, display_left)
@@ -545,22 +537,6 @@ class WTouchScreen(QWidget):
             action = QtGui.QAction(img_name, display_right)
             display_right.addAction(action)
             actions[action] = (self.display_image, ("right", img_id))
-
-        action = QtGui.QAction("on left", remove_menu)
-        remove_menu.addAction(action)
-        actions[action] = (self.clear_image, ("left",))
-
-        action = QtGui.QAction("on right", remove_menu)
-        remove_menu.addAction(action)
-        actions[action] = (self.clear_image, ("right",))
-
-        action = QtGui.QAction("on left", touch_menu)
-        touch_menu.addAction(action)
-        actions[action] = (self.touch_on, ("left",))
-
-        action = QtGui.QAction("on right", touch_menu)
-        touch_menu.addAction(action)
-        actions[action] = (self.touch_on, ("right",))
 
         chosen = menu.exec(self.mapToGlobal(event.pos()))
 
@@ -590,7 +566,6 @@ class WTouchScreen(QWidget):
             "rotation": 0,
             "scale": 1,
         }
-        self.clear_image(side)
         self.touchscreen.setXYImage(
             img["name"],
             img["id"],
@@ -599,17 +574,6 @@ class WTouchScreen(QWidget):
             img["rotation"],
             img["scale"],
         )
-        self.update()
-
-    def clear_image(self, side: str):
-        """Clear the image on the given side ('left' or 'right')."""
-        if self.touchscreen is None:
-            return
-        if side not in ["left", "right"]:
-            return
-        for img in self.touchscreen.getCurrentImageList().copy():
-            if side in img["name"]:
-                self.touchscreen.removeXYImage(img["name"])
         self.update()
 
     def clear_all_images(self):
@@ -624,12 +588,8 @@ class WTouchScreen(QWidget):
         x = WTouchScreen.SCREEN_SIZE.width() // 2
         x += -400 if side == "left" else 400
         y = 750
-        # self.indicators.append(
-        #     WTouchPointIndicator(QPointF(x, y), self.update)
-        # )
 
         if self.touchscreen is None:
-            # self.update()
             return
 
         img = None
@@ -641,6 +601,14 @@ class WTouchScreen(QWidget):
             i += 1
 
         if img is None:
+            self.touchscreen.fireEvent(
+                DeviceEvent(
+                    "touchscreen",
+                    self.touchscreen,
+                    f"missed {x},{y}",
+                    (x, y),
+                )
+            )
             return
 
         name = (
