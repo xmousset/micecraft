@@ -510,11 +510,26 @@ class WTouchScreen(QWidget):
         display_right = QMenu("on right", display_menu)
         display_menu.addMenu(display_right)
 
-        clear_menu = QMenu("Clear", menu)
-        menu.addMenu(clear_menu)
+        remove_menu = QMenu("Remove", menu)
+        menu.addMenu(remove_menu)
 
         touch_menu = QMenu("Touch", menu)
         menu.addMenu(touch_menu)
+
+        action = QtGui.QAction("Clear All", menu)
+        menu.addAction(action)
+        actions[action] = (self.clear_all_images, ())
+
+        action = QtGui.QAction("Print Display", menu)
+        menu.addAction(action)
+        actions[action] = (
+            print,
+            tuple(map(lambda img: img["name"], self.widget_display)),
+        )
+
+        action = QtGui.QAction("Print TouchScreen", menu)
+        menu.addAction(action)
+        actions[action] = (print, tuple(self.get_current_display()))
 
         for img_id, img_name in WTouchScreen.NAME_DICT.items():
             action = QtGui.QAction(img_name, display_left)
@@ -525,12 +540,12 @@ class WTouchScreen(QWidget):
             display_right.addAction(action)
             actions[action] = (self.display_image, ("right", img_id))
 
-        action = QtGui.QAction("on left", clear_menu)
-        clear_menu.addAction(action)
+        action = QtGui.QAction("on left", remove_menu)
+        remove_menu.addAction(action)
         actions[action] = (self.clear_image, ("left",))
 
-        action = QtGui.QAction("on right", clear_menu)
-        clear_menu.addAction(action)
+        action = QtGui.QAction("on right", remove_menu)
+        remove_menu.addAction(action)
         actions[action] = (self.clear_image, ("right",))
 
         action = QtGui.QAction("on left", touch_menu)
@@ -571,6 +586,7 @@ class WTouchScreen(QWidget):
         self.widget_display.append(img)
 
         if self.touchscreen is not None:
+            self.clear_image(side)
             self.touchscreen.setXYImage(
                 img["name"],
                 img["id"],
@@ -601,6 +617,13 @@ class WTouchScreen(QWidget):
             self.widget_display = [
                 img for img in self.widget_display if side not in img["name"]
             ]
+        self.update()
+
+    def clear_all_images(self):
+        """Clear all images from the display."""
+        if self.touchscreen is not None:
+            self.touchscreen.clear()
+        self.widget_display.clear()
         self.update()
 
     def touch_at(self, side: str):
