@@ -147,7 +147,7 @@ class WTouchScreen(QWidget):
             wh,
         )
 
-        self.current_display: list[dict[str, Any]] = []
+        self.widget_display: list[dict[str, Any]] = []
         self.touchscreen = None
         self.name = "WTS"
 
@@ -220,7 +220,7 @@ class WTouchScreen(QWidget):
 
     def get_current_display(self):
         if self.touchscreen is None:
-            return self.current_display
+            return self.widget_display
         else:
             return self.touchscreen.getCurrentImageList()
 
@@ -302,11 +302,11 @@ class WTouchScreen(QWidget):
         p.drawRect(*self.get_rect("contour"))
 
         # display images
-        for img in self.get_current_display():
+        for img in self.widget_display:
             if img["type"] != "xy":
                 continue
 
-            name = self.NAME_DICT.get(img["id"], f"UNKNOWN")
+            name = self.IMG_DICT.get(img["id"], f"UNKNOWN")
             img_clr = (
                 WTouchScreen.DARK_COLOR
                 if img["id"] == 8
@@ -452,10 +452,9 @@ class WTouchScreen(QWidget):
             "scale": 1,
         }
 
-        if self.touchscreen is None:
-            self.current_display.append(img)
-            self.current_display.append(img)
-        else:
+        self.widget_display.append(img)
+
+        if self.touchscreen is not None:
             self.touchscreen.setXYImage(
                 img["name"],
                 img["id"],
@@ -470,18 +469,22 @@ class WTouchScreen(QWidget):
         """Clear the image on the given side ('left' or 'right')."""
         if side not in ["left", "right"]:
             return
+        if self.touchscreen is not None:
+            img_to_remove = [
+                img
+                for img in self.touchscreen.getCurrentImageList()
+                if side not in img["name"]
+            ]
+            for img in img_to_remove:
+                self.touchscreen.removeXYImage(img["name"])
+
         img_to_remove = [
-            img for img in self.get_current_display() if side in img["name"]
+            img for img in self.widget_display if side in img["name"]
         ]
         for img in img_to_remove:
-            if self.touchscreen is None:
-                self.current_display = [
-                    img
-                    for img in self.current_display
-                    if side not in img["name"]
-                ]
-            else:
-                self.touchscreen.removeXYImage(img["name"])
+            self.widget_display = [
+                img for img in self.widget_display if side not in img["name"]
+            ]
         self.update()
 
     def touch_at(self, side: str):
@@ -490,8 +493,31 @@ class WTouchScreen(QWidget):
         x += -400 if side == "left" else 400
         y = 750
         self.indicators.append(WTouchPointIndicator((x, y), self.update))
+
+        if self.touchscreen is None:
+            self.update()
+            return
+
+        img = None
+        i = 0
+        while img is None and i < len(self.widget_display):
+            if side in self.widget_display[i]["name"]:
+                img = self.widget_display[i]
+            i += 1
+
+        if img is None:
+            return
+
+        name = f"simulation_{side}_image_{WTouchScreen.NAME_DICT.get(img['id'], 'UNKNOWN')}"
+        self.touchscreen.fireEvent(
+            DeviceEvent(
+                "touchscreen",
+                self.touchscreen,
+                f"symbol xy touched {name} id {img['id']} at 0,0,{x},{y}",
+                (name, img["id"], 0, 0, x, y),
+            )
+        )
         self.simulate_touch_event(side)
-        self.update()
 
     def simulate_touch_event(self, side: str, id: int | None = None):
         """Fire a synthetic 'symbol xy touched' event through the device."""
@@ -502,15 +528,6 @@ class WTouchScreen(QWidget):
         x = WTouchScreen.SCREEN_SIZE[0] / 2
         x += -400 if side == "left" else 400
         y = 750
-        name = f"simulation_{side}_image_{WTouchScreen.NAME_DICT.get(id, '?')}"
-        self.touchscreen.fireEvent(
-            DeviceEvent(
-                "touchscreen",
-                self.touchscreen,
-                f"symbol xy touched {name} id {id} at 0,0,{x},{y}",
-                (name, id, 0, 0, x, y),
-            )
-        )
 
 
 if __name__ == "__main__":
