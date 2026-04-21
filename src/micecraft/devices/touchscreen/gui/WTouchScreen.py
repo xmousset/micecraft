@@ -138,7 +138,7 @@ class WTouchScreen(QWidget):
         widget_size = WTouchScreen.WIDGET_SIZE
         rect = QRect(
             int((x + 1) * 200),
-            int(y * 200),
+            int((y + 1) * 200),
             widget_size.width(),
             widget_size.height(),
         )
