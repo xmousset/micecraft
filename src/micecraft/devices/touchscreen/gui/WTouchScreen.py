@@ -120,8 +120,8 @@ class WTouchScreen(QWidget):
     IMG_DICT: dict[int, str] = {
         8: "",
         7: "",
-        1: "✿",
-        0: "✈",
+        1: "\u273f",
+        0: "\u2708",
     }
 
     BG_COLOR = QColor(220, 220, 220)

@@ -229,6 +229,7 @@ class VisualDiscriminationInterface(QWidget):
             animal_y = int(self.animals[-1].y) + 100
 
         animal = WMouse(animal_x, animal_y, self)
+        animal.show()
         animal.number = number
 
         animal.vpos = {}
