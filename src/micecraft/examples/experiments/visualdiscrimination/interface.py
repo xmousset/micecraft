@@ -301,6 +301,9 @@ class VisualDiscriminationInterface(QWidget):
                 continue
 
             visual_room = VisualRoom.get_from_name(str(room))
+            if visual_room is None:
+                animal.vpos["target_location"] = animal.vpos["home"]
+                continue
 
             animal.vpos["target_location"] = (
                 visual_room.block.x + 40,  # type: ignore
@@ -518,7 +521,10 @@ class VisualDiscriminationInterface(QWidget):
 
 
 def excepthook(type_, value, traceback_):
-    traceback.print_exception(type_, value, traceback_)
+    try:
+        traceback.print_exception(type_, value, traceback_)
+    except Exception:
+        print(f"Exception: {type_.__name__}: {value}")
     QtCore.qFatal("")
 
 
@@ -531,7 +537,9 @@ if __name__ == "__main__":
     app.aboutToQuit.connect(interface.shutdown)
     experiment = VisualDiscriminationExperiment(*setup_example_experiment())
 
-    room_names = [room.name for room in interface.experiment.get_all_rooms()]
+    interface.set_experiment(experiment)
+
+    room_names = [room.name for room in experiment.get_all_rooms()]
     VisualRoom(
         parent=interface,
         name=str(room_names[0]),

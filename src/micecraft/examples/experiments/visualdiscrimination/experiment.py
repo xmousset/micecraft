@@ -635,7 +635,7 @@ class Room:
         if rfid is None:
             return None
         for room in cls.ALL:
-            if room.animal_in == rfid:
+            if room.animal_in is not None and room.animal_in.rfid == rfid:
                 return room
         return None
 
@@ -774,6 +774,8 @@ class Room:
             correct_image = self.animal_in.phase.force_correct_image
             if correct_image is None:
                 correct_image = self.animal_in.correct_image
+            if self.animal_in.phase.use_opposite:
+                correct_image = correct_image.get_opposite()
 
             if str(correct_image) in event.description:
                 logging.info(
@@ -1346,7 +1348,8 @@ class VisualDiscriminationExperiment:
         name: str | None = None,
         rfid_in: str | None = None,
     ) -> Room | None:
-        """Get the room from its *name* or from its *rfid_in*."""
+        """Get the room from its name (or the name of one of its devices) or
+        from the rfid currently in the room."""
         if name is not None:
             return Room.get_from_name(name)
 
