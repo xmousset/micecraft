@@ -218,12 +218,16 @@ class VisualDiscriminationInterface(QWidget):
         )
 
         if house_void > 0:
+            found = False
             for x in range(house_pos_available[0]):
                 for y in range(house_pos_available[1]):
                     if 2 * (x + 1) * (y + 1) > len(self.animals):
                         animal_x += x * 200
                         animal_y += y * 200
+                        found = True
                         break
+                if found:
+                    break
         else:
             animal_x = int(self.animals[-1].x)
             animal_y = int(self.animals[-1].y) + 100

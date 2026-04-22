@@ -24,6 +24,8 @@ from micecraft.devices.roomSensor.RoomSensorDigest import RoomSensorDigest
 from micecraft.soft.utils.WaitForAllThreads import WaitForAllThreads
 from micecraft.soft.device_event.DeviceEvent import DeviceEvent
 from micecraft.soft.utils.ParameterSaver import ParameterSaver
+from PyQt6.QtWidgets import QInputDialog, QMessageBox
+
 from micecraft.soft.camera_recorder.CameraRecorder import (
     CameraRecorder,
     CRText,
@@ -65,16 +67,17 @@ class ExperimentSettings:
         if it exists."""
 
         if self.name == "":
-            print("No previous experiment found.")
-            reload = None
+            reload = False
         else:
-            print("Do you want to reload the previous experiment ?")
-            reload = input(f"Reload {self.name} ? [Y/N]: ").casefold()
+            btn = QMessageBox.question(
+                None,
+                "Reload experiment",
+                f"Reload previous experiment '{self.name}'?",
+            )
+            reload = btn == QMessageBox.StandardButton.Yes
 
-        if reload is not None and reload.startswith("y"):
-            print(f"Loaded experiment: {self.name}")
+        if reload:
             self.comment += " (reloaded)"
-            print(f"Loaded comment: {self.comment}")
         else:
             self.user_input_identification()
             self.ask_user_image_assignment()
@@ -82,12 +85,12 @@ class ExperimentSettings:
     def ask_user_image_assignment(self):
         """Ask the user whether to assign TSImage at random during experiment
         or to wait until the user assigns them manually."""
-        choice = input("Assign animals image at random? [Y/N]: ").casefold()
-
-        if choice.startswith("y"):
-            self.auto_random_attribution = True
-        else:
-            self.auto_random_attribution = False
+        btn = QMessageBox.question(
+            None,
+            "Image assignment",
+            "Assign animals image at random?",
+        )
+        self.auto_random_attribution = btn == QMessageBox.StandardButton.Yes
 
     def save_experiment(self):
         """Save the experiment name and comment for the next session."""
@@ -114,12 +117,22 @@ class ExperimentSettings:
 
     def user_input_identification(self):
         """Ask the user to input the experiment name and comment."""
-        name = input("Enter the id for this experiment: ")
-        if name is None or name.strip() == "":
-            raise ValueError("Experiment ID cannot be empty.")
-        name = name.replace("-", "_")
-        self.name = name
-        self.comment = input("Experiment comments: ")
+        while True:
+            name, ok = QInputDialog.getText(
+                None, "Experiment ID", "Enter the id for this experiment:"
+            )
+            if not ok:
+                continue
+            if name is None or name.strip() == "":
+                QMessageBox.warning(
+                    None, "Invalid ID", "Experiment ID cannot be empty."
+                )
+                continue
+            break
+        self.name = name.replace("-", "_")
+        self.comment, _ = QInputDialog.getText(
+            None, "Experiment comment", "Experiment comments:"
+        )
 
 
 class TSImage(Enum):
