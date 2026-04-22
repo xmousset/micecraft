@@ -1017,6 +1017,7 @@ class Room:
             f"room-device: {self.wp.name} "
             f"reward_size: {reward_size}"
         )
+        self.ts.enabled = True
 
     def set_fail_state(self, wait_time: int):
         """Set room in FAIL state."""
@@ -1024,6 +1025,7 @@ class Room:
         self.clear_state(1000)
         logging.info(f"[room_state] room: {str(self)} state: FAIL")
         self.start_timer(wait_time, self.set_trial_state)
+        self.ts.enabled = True
 
     def set_trial_state(self):
         """Grab the phase of animal. Update room depending on animal phase

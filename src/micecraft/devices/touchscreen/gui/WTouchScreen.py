@@ -17,7 +17,8 @@ class WTouchPointIndicator:
         self,
         touch_point: QPointF,
         update_callback: Callable,
-        visible_time: int = 6,
+        visible_time: int = 3,
+        fading_time: int = 2,
         size: int = 3,
     ):
         """Initialize the touch point indicator.
@@ -40,15 +41,14 @@ class WTouchPointIndicator:
         """Position (x, y) on the screen."""
         self.show: bool = True
         self.size: int = size
-        self.visible_time: int = visible_time
-        """Time in seconds for which the indicator should be visible."""
+        self.visible_time: int = visible_time * 1_000
+        """Time in milliseconds for which the indicator should be visible."""
+        self.fading_time: int = fading_time * 1_000
+        """Time in milliseconds for which the indicator should fade out
+        (included in the visible time)."""
         self.update_callback: Callable = update_callback
 
-        self.timer: QTimer = QTimer()
-        self.timer.setSingleShot(True)
-        self.timer.timeout.connect(self.end_timer)
-
-        self.start_timer()
+        self.timer: QTimer | None = None
 
     def get_rect(self) -> QRect:
         """Get the rectangle area covered by this indicator, based on its
@@ -66,26 +66,27 @@ class WTouchPointIndicator:
         return self.touch_point == other.touch_point
 
     def start_timer(self):
-        self.timer.start(self.visible_time * 1000)
+        self.timer = QTimer()
+        self.timer.setSingleShot(True)
+        self.timer.timeout.connect(self.end_timer)
+        self.timer.start(self.visible_time)
 
     def end_timer(self):
-        try:
+        if self.timer is not None:
             self.timer.stop()
-        except Exception:
-            pass
         self.show = False
         self.update_callback()
 
     def get_alpha(self) -> int:
         """Get the current alpha value for the indicator, based on the
         remaining time before it disappears."""
-        if not self.timer.isActive():
+        if self.timer is None or not self.timer.isActive():
             return 0
-        ratio = self.timer.remainingTime() / (self.visible_time * 1000)
-        if ratio >= 0.5:
-            return 255
+        rt = self.timer.remainingTime()
+        if rt < self.fading_time:
+            return int(255 * rt / self.fading_time)
         else:
-            return int(255 * ratio * 2)
+            return 255
 
 
 class WTouchScreen(QWidget):
@@ -408,6 +409,11 @@ class WTouchScreen(QWidget):
 
     def paintEvent(self, event: QPaintEvent):  # type: ignore[override]
         super().paintEvent(event)
+
+        # timers must be created here for thread affinity reasons
+        for indicator in self.indicators:
+            if indicator.timer is None:
+                indicator.start_timer()
 
         p = QPainter(self)
         p.setRenderHint(QPainter.RenderHint.Antialiasing)
