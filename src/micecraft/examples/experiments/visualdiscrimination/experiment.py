@@ -1369,9 +1369,6 @@ class VisualDiscriminationExperiment:
         room = self.get_room(name=device_name)
 
         if room is None:
-            logging.info(
-                "[warning] [gate_listener] " f"room-device: {device_name} "
-            )
             return
 
         # Animal in

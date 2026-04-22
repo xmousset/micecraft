@@ -134,45 +134,22 @@ class WTouchScreen(QWidget):
         self,
         x: float = 0,
         y: float = 0,
-        block_wall: Literal["left", "top", "right", "bottom"] = "top",
+        angle: int = 0,
         parent: QWidget | None = None,
     ):
         super().__init__(parent)
-        self.block_wall = block_wall
-        widget_size = WTouchScreen.WIDGET_SIZE
+        self.angle = angle
+        ww = WTouchScreen.WIDGET_SIZE.width()
+        wh = WTouchScreen.WIDGET_SIZE.height()
+
+        self.max_dim = max(ww, wh)
+
         rect = QRect(
-            int((x + 1) * 200),
-            int((y + 1) * 200),
-            widget_size.width(),
-            widget_size.height(),
+            int(x * 200 + 100) - self.max_dim // 2,
+            int(y * 200 + 100) - self.max_dim // 2,
+            self.max_dim,
+            self.max_dim,
         )
-        match block_wall:
-            case "top":
-                rect.translate(
-                    -widget_size.width() // 2,
-                    100 - widget_size.height() // 2,
-                )
-            case "bottom":
-                rect.translate(
-                    -widget_size.width() // 2,
-                    -100 - widget_size.height() // 2,
-                )
-            case "left":
-                widget_size = widget_size.transposed()
-                rect.translate(
-                    -100 - widget_size.width() // 2,
-                    -widget_size.height() // 2,
-                )
-                rect = rect.transposed()
-            case "right":
-                widget_size = widget_size.transposed()
-                rect.translate(
-                    100 - widget_size.width() // 2,
-                    -widget_size.height() // 2,
-                )
-                rect = rect.transposed()
-            case _:
-                raise ValueError(f"Invalid block_wall value: {block_wall}")
 
         self.setGeometry(rect)
         self.touchscreen = None
@@ -183,7 +160,6 @@ class WTouchScreen(QWidget):
     def get_element_rect(
         self,
         element: str,
-        transform: bool = False,
     ) -> QRect:
         """Get the rectangle for a given element of the widget, with an
         optional transform to apply the block wall rotation.
@@ -199,11 +175,9 @@ class WTouchScreen(QWidget):
         text_h = WTouchScreen.WIDGET_TEXT_HEIGHT
         margin = WTouchScreen.WIDGET_MARGIN
 
-        # Always compute rects in horizontal space (WIDGET_SIZE = W x H).
-        # transform_rect() will map them to the actual widget coordinate space.
         widget_rect = QRect(
-            0,
-            0,
+            self.max_dim // 2 - WTouchScreen.WIDGET_SIZE.width() // 2,
+            self.max_dim // 2 - WTouchScreen.WIDGET_SIZE.height() // 2,
             WTouchScreen.WIDGET_SIZE.width(),
             WTouchScreen.WIDGET_SIZE.height(),
         )
@@ -247,44 +221,7 @@ class WTouchScreen(QWidget):
             case _:
                 raise ValueError(f"Invalid element value: {element}")
 
-        if transform:
-            rect = self.transform_rect(rect)
-
         return rect
-
-    def transform_rect(
-        self,
-        rect: QRect,
-    ) -> QRect:
-        """Map a rectangle from horizontal space (WIDGET_SIZE = W x H) to
-        the actual widget coordinate space, depending on `self.block_wall`.
-
-        Transformations applied to a point (x, y):
-            - 'top'    : (x, y)         -> (x, y)       [no change]
-            - 'bottom' : (x, y)         -> (W-x, H-y)   [180° rotation]
-            - 'right'  : (x, y)         -> (H-y, x)     [90° clockwise]
-            - 'left'   : (x, y)         -> (y, W-x)     [90° counter-clockwise]
-        """
-        W = WTouchScreen.WIDGET_SIZE.width()
-        H = WTouchScreen.WIDGET_SIZE.height()
-        rx, ry, rw, rh = rect.x(), rect.y(), rect.width(), rect.height()
-
-        match self.block_wall:
-            case "top":
-                return QRect(rx, ry, rw, rh)
-            case "bottom":
-                # 180°: (x,y) -> (W-x, H-y)
-                return QRect(W - rx - rw, H - ry - rh, rw, rh)
-            case "right":
-                # 90° CW: (x,y) -> (H-y, x), size: (rw,rh) -> (rh,rw)
-                return QRect(H - ry - rh, rx, rh, rw)
-            case "left":
-                # 90° CCW: (x,y) -> (y, W-x), size: (rw,rh) -> (rh,rw)
-                return QRect(ry, W - rx - rw, rh, rw)
-            case _:
-                raise ValueError(
-                    f"Invalid 'block_wall' value: {self.block_wall}"
-                )
 
     def get_line(
         self,
@@ -312,7 +249,6 @@ class WTouchScreen(QWidget):
             2 * indicator.size,
         )
 
-        cross_rect = self.transform_rect(cross_rect)
         cross_center = cross_rect.center().toPointF()
 
         hline = QLineF(-indicator.size, 0, indicator.size, 0)
@@ -386,25 +322,8 @@ class WTouchScreen(QWidget):
         """Draw text in the given rectangle, rotated if vertical orientation."""
 
         p.save()
-        p.translate(rect.center())
 
-        match self.block_wall:
-            case "left":
-                p.rotate(-90)
-            case "right":
-                p.rotate(90)
-            case "bottom":
-                p.rotate(180)
-        p.drawText(
-            QRect(
-                int(-rect.height() / 2),
-                int(-rect.width() / 2),
-                rect.height(),
-                rect.width(),
-            ),
-            Qt.AlignmentFlag.AlignCenter,
-            txt,
-        )
+        p.drawText(QRect(rect), Qt.AlignmentFlag.AlignCenter, txt)
         p.restore()
 
     def paintEvent(self, event: QPaintEvent):  # type: ignore[override]
@@ -418,15 +337,19 @@ class WTouchScreen(QWidget):
         p = QPainter(self)
         p.setRenderHint(QPainter.RenderHint.Antialiasing)
 
+        p.translate(self.width() / 2, self.height() / 2)
+        p.rotate(self.angle)
+        p.translate(-self.width() / 2, -self.height() / 2)
+
         # background
         p.fillRect(
-            self.get_element_rect("widget", True),
+            self.get_element_rect("widget"),
             WTouchScreen.BG_COLOR,
         )
 
         # widget contour
         p.setPen(QPen(WTouchScreen.CONTOUR_COLOR, 2))
-        contour_rect = self.get_element_rect("widget", True)
+        contour_rect = self.get_element_rect("widget")
         contour_rect = contour_rect.marginsRemoved(QMargins(1, 1, 1, 1))
         p.drawRect(contour_rect)
 
@@ -440,7 +363,7 @@ class WTouchScreen(QWidget):
                 continue
 
             # side contour
-            contour_rect = self.get_element_rect(side, True)
+            contour_rect = self.get_element_rect(side)
             margins = QMargins(2, 2, 2, 2)
             contour_rect = contour_rect.marginsAdded(margins)
             p.fillRect(contour_rect, WTouchScreen.CONTOUR_COLOR)
@@ -453,12 +376,12 @@ class WTouchScreen(QWidget):
                 img_clr = WTouchScreen.DARK_COLOR
                 pen_clr = WTouchScreen.LIGHT_COLOR
 
-            p.fillRect(self.get_element_rect(side, True), img_clr)
+            p.fillRect(self.get_element_rect(side), img_clr)
             p.setPen(pen_clr)
             font = QFont("Calibri", 16)
             font.setBold(True)
             p.setFont(font)
-            self.draw_text(p, self.get_element_rect(side, True), name)
+            self.draw_text(p, self.get_element_rect(side), name)
 
         if self.touchscreen is not None and not self.touchscreen.enabled:
             # disabled DISABLED
@@ -466,9 +389,7 @@ class WTouchScreen(QWidget):
             font = QFont("Calibri", 13)
             font.setBold(False)
             p.setFont(font)
-            self.draw_text(
-                p, self.get_element_rect("screen", True), "DISABLED"
-            )
+            self.draw_text(p, self.get_element_rect("screen"), "DISABLED")
 
         # display touch indicators
         all_indicators = self.indicators.copy()
@@ -495,7 +416,7 @@ class WTouchScreen(QWidget):
         font_name = QFont("Calibri", 8)
         font_name.setBold(True)
         p.setFont(font_name)
-        self.draw_text(p, self.get_element_rect("name", True), self.name)
+        self.draw_text(p, self.get_element_rect("name"), self.name)
 
         # self.visualDeviceAlarmStatus.draw(
         #     p,
@@ -547,7 +468,11 @@ class WTouchScreen(QWidget):
         chosen = menu.exec(self.mapToGlobal(event.pos()))
 
         if chosen is None:
+            print(
+                "No action as there is no hardware device bound to this component"
+            )
             return
+
         actions[chosen][0](*actions[chosen][1])
 
     def display_image(self, side: str, img_id: int):
@@ -707,8 +632,10 @@ if __name__ == "__main__":
 
     app = QtWidgets.QApplication(sys.argv)
     vts = VirtualTouchScreen("Virtual TouchScreen")
-    # ts = WTouchScreen(block_wall="top")
-    wts = WTouchScreen(block_wall="bottom")
+    wts = WTouchScreen(angle=0)
+    wts = WTouchScreen(angle=90)
+    wts = WTouchScreen(angle=-90)
+    wts = WTouchScreen(angle=180)
 
     fade_timer = QTimer()
     fade_timer.setInterval(50)  # ~20 fps
@@ -716,8 +643,6 @@ if __name__ == "__main__":
     fade_timer.start()
 
     wts.bindToTouchScreen(vts)
-    # ts = WTouchScreen(block_wall="left")
-    # ts = WTouchScreen(block_wall="right")
     wts.setName("Example TouchScreen")
     wts.show()
     screen = app.primaryScreen()

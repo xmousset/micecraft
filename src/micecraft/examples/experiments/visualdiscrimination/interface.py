@@ -88,43 +88,58 @@ class VisualRoom:
         parent: QWidget | None,
         name: str,
         gate_pos: tuple[int, int],
-        orientation: Literal["horizontal", "vertical"] = "horizontal",
+        gate_touchscreen_direction: (
+            str | Literal["top", "bottom", "left", "right"]
+        ) = "right",
     ) -> None:
         self.parent = parent
         self.name: str = name
-        if orientation == "vertical":
-            raise NotImplementedError(
-                "Vertical orientation not implemented yet."
-            )
 
-        self.gate: WGate = WGate(
-            gate_pos[0],
-            gate_pos[1],
-            self.parent,
-        )
+        gx, gy = gate_pos
+
+        match gate_touchscreen_direction:
+            case "right":
+                bx, by = gx + 1, gy
+                wpx, wpy = bx + 0.4, by - 0.4
+                tsx, tsy = bx + 1, by + 0.5
+                gate_wp_angle = 0
+                ts_angle = 90
+            case "left":
+                bx, by = gx - 1, gy
+                wpx, wpy = bx + 0.4, by - 0.4
+                tsx, tsy = bx, by + 0.5
+                gate_wp_angle = 0
+                ts_angle = -90
+            case "top":
+                bx, by = gx, gy - 1
+                wpx, wpy = bx - 0.4, by
+                tsx, tsy = bx + 0.5, by
+                gate_wp_angle = -90
+                ts_angle = 0
+            case "bottom":
+                bx, by = gx, gy + 1
+                wpx, wpy = bx - 0.4, by
+                tsx, tsy = bx + 0.5, by + 1
+                gate_wp_angle = -90
+                ts_angle = 180
+            case _:
+                raise ValueError(
+                    "Invalid gate_touchscreen_direction: "
+                    f"{gate_touchscreen_direction!r}"
+                )
+
+        self.gate: WGate = WGate(gx, gy, self.parent)
         self.gate.setName(name + "_Gate")
-        # self.gate.setAngle(90)
+        self.gate.setAngle(gate_wp_angle)
 
-        self.block = WBlock(
-            gate_pos[0] + 1,
-            gate_pos[1],
-            self.parent,
-        )
+        self.block = WBlock(bx, by, self.parent)
         self.block.setName(name + "_Block")
 
-        self.wp: WPump = WPump(
-            gate_pos[0] + 1 + 0.4,
-            gate_pos[1] - 0.4,
-            self.parent,
-        )
+        self.wp: WPump = WPump(wpx, wpy, self.parent)
         self.wp.setName(name + "_WP")
+        self.wp.setAngle(gate_wp_angle)
 
-        self.ts: WTouchScreen = WTouchScreen(
-            gate_pos[0] + 1,
-            gate_pos[1],
-            "right",
-            self.parent,
-        )
+        self.ts: WTouchScreen = WTouchScreen(tsx, tsy, ts_angle, self.parent)
         self.ts.setName(name + "_TS")
 
         VisualRoom.ALL.append(self)
@@ -159,7 +174,6 @@ class VisualDiscriminationInterface(QWidget):
         self.name = "Visual experiment monitoring"
         self.shutting_down = False
         self.animals: list[WMouse] = []
-        # self.gates : typing.List[WWGate] = []
         self.rooms: list[WBlock] = []
         self.painters: dict[str, QtGui.QPainter]
         self.visualStorageAlarm = None
@@ -182,8 +196,7 @@ class VisualDiscriminationInterface(QWidget):
         self.experiment.shutdown_experiment()
 
     def init_house(self, house_size: tuple[int, int] = (1, 1)):
-        """Create a block widget house at 'block_pos'= [0, 0] and place it in
-        'rooms' in first position.
+        """Create a block widget house at 'block_pos'= [0, 0].
 
         Parameters
         ----------
@@ -488,24 +501,12 @@ class VisualDiscriminationInterface(QWidget):
         else:
             logging.info(f"[user_action] name: ACTION_CANCELED")
 
-    def start(self, experiment: VisualDiscriminationExperiment):
-        """Initialise the application."""
+    def set_experiment(self, experiment: VisualDiscriminationExperiment):
+        """Set the experiment for the interface."""
         self.experiment = experiment
 
-        romm_names = [room.name for room in self.experiment.get_all_rooms()]
-        VisualRoom(
-            parent=self,
-            name=str(romm_names[0]),
-            gate_pos=(2, 0),
-            orientation="horizontal",
-        )
-
-        self.init_house(house_size=(2, 1))
-        self.init_rooms()
-
-        self.resize(1000, 400)
-        self.setWindowTitle("LMT blocks - gate rfid back test")
-
+    def start(self):
+        """Start the application."""
         self.thread: threading.Thread = threading.Thread(  # type: ignore
             target=self.monitor_GUI
         )
@@ -513,7 +514,6 @@ class VisualDiscriminationInterface(QWidget):
         self.thread.start()
 
         self.visualStorageAlarm = VisualStorageAlarm()
-
         self.raise_()
 
 
@@ -527,13 +527,26 @@ if __name__ == "__main__":
     sys.excepthook = excepthook
     app = QApplication([])
 
-    visualExperiment = VisualDiscriminationInterface()
-    app.aboutToQuit.connect(visualExperiment.shutdown)
+    interface = VisualDiscriminationInterface()
+    app.aboutToQuit.connect(interface.shutdown)
     experiment = VisualDiscriminationExperiment(*setup_example_experiment())
-    visualExperiment.start(experiment)
-    visualExperiment.show()
-    visualExperiment.raise_()
+
+    room_names = [room.name for room in interface.experiment.get_all_rooms()]
+    VisualRoom(
+        parent=interface,
+        name=str(room_names[0]),
+        gate_pos=(2, 0),
+        gate_touchscreen_direction="right",
+    )
+
+    interface.init_house(house_size=(2, 1))
+    interface.init_rooms()
+
+    interface.resize(1000, 400)
+    interface.setWindowTitle("MiceCraft - Visual Discrimination Example")
+
+    interface.start()
+    interface.show()
+    interface.raise_()
 
     sys.exit(app.exec())
-
-    print("*** End of program ***")

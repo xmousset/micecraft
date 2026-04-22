@@ -18,12 +18,13 @@ from micecraft.examples.experiments.visualdiscrimination.experiment import (
 )
 from micecraft.examples.experiments.visualdiscrimination.interface import (
     excepthook,
+    VisualRoom,
     VisualDiscriminationInterface,
 )
 
 
 # ================ EXPERIMENT PARAMETERS ================
-def get_experiment_parameters():
+def define_experiment_parameters():
 
     # Images
     # ----------------
@@ -79,20 +80,43 @@ def get_experiment_parameters():
     return images_to_attribute, sensors, cam_recorder
 
 
+def construct_app_visual(interface: VisualDiscriminationInterface):
+    """Construct the visual representation of the experiment."""
+
+    # get room names from the experiment in order of creation
+    room_names = [room.name for room in interface.experiment.get_all_rooms()]
+
+    VisualRoom(
+        parent=interface,
+        name=str(room_names[0]),
+        gate_pos=(2, 0),
+        gate_touchscreen_direction="right",
+    )
+
+    interface.init_house(house_size=(2, 1))
+    interface.init_rooms()
+
+    interface.resize(1000, 400)
+    interface.setWindowTitle("MiceCraft - Visual Discrimination Example")
+
+
 if __name__ == "__main__":
     print("*** Start of program ***")
-    experiment_parameters = get_experiment_parameters()
+    experiment_parameters = define_experiment_parameters()
 
     sys.excepthook = excepthook
     app = QApplication([])
 
-    visualExperiment = VisualDiscriminationInterface()
-    app.aboutToQuit.connect(visualExperiment.shutdown)
+    interface = VisualDiscriminationInterface()
+    app.aboutToQuit.connect(interface.shutdown)
 
     experiment = VisualDiscriminationExperiment(*experiment_parameters)
+    interface.set_experiment(experiment)
 
-    visualExperiment.start(experiment)  # may need modifications
-    visualExperiment.show()
+    construct_app_visual(interface)
+
+    interface.start()
+    interface.show()
 
     sys.exit(app.exec())
 
