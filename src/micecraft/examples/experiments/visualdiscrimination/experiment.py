@@ -635,7 +635,8 @@ class Room:
         if rfid is None:
             return None
         for room in cls.ALL:
-            if room.animal_in is not None and room.animal_in.rfid == rfid:
+            animal = room.animal_in
+            if animal is not None and animal.rfid == rfid:
                 return room
         return None
 
