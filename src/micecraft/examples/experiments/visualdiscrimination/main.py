@@ -32,6 +32,8 @@ def define_experiment_parameters():
 
     # Phases creation
     # ----------------
+    Phase.ALL = []
+
     Phase(
         "BLACK_WHITE",
         1,
@@ -44,6 +46,8 @@ def define_experiment_parameters():
 
     # Room creation
     # ----------------
+    Room.ALL = []
+
     wp_alpha = WaterPump(comPort="COM22")
     ts_alpha = TouchScreen(comPort="COM20")
     gate_alpha = Gate(
@@ -101,6 +105,7 @@ def construct_app_visual(interface: VisualDiscriminationInterface):
 
 
 if __name__ == "__main__":
+
     print("*** Start of program ***")
     experiment_parameters = define_experiment_parameters()
 
