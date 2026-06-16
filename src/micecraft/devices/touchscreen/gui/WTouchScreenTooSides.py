@@ -1,4 +1,4 @@
-﻿from typing import Any, Callable, Literal
+﻿from typing import Any, Callable
 
 from PyQt6 import QtWidgets, QtGui
 from PyQt6.QtGui import QPaintEvent, QPainter, QFont, QPen, QColor
@@ -87,6 +87,77 @@ class WTouchPointIndicator:
             return int(255 * rt / self.fading_time)
         else:
             return 255
+
+
+class VirtualTouchScreen:
+    """A mock TouchScreen with the same interface as TouchScreen, for testing
+    WTouchScreen without a physical device."""
+
+    def __init__(self, name: str = "TouchScreen"):
+        self.name = name
+        self.enabled: bool = True
+        self.currentDisplay: list[dict[str, Any]] = []
+        self.deviceListeners: list[Callable] = []
+
+    def addDeviceListener(self, listener: Callable) -> None:
+        self.deviceListeners.append(listener)
+
+    def removeDeviceListener(self, listener: Callable) -> None:
+        self.deviceListeners.remove(listener)
+
+    def fireEvent(self, event: DeviceEvent) -> None:
+        for listener in self.deviceListeners:
+            listener(event)
+
+    def getCurrentImageList(self) -> list[dict[str, Any]]:
+        return self.currentDisplay
+
+    def setXYImage(
+        self,
+        name: str,
+        id: int,
+        centerX: float,
+        centerY: float,
+        rotation: float,
+        scale: float,
+    ) -> None:
+        name = name.replace(" ", "_")
+        self.currentDisplay.append(
+            {
+                "name": name,
+                "type": "xy",
+                "id": id,
+                "centerX": centerX,
+                "centerY": centerY,
+                "rotation": rotation,
+                "scale": scale,
+            }
+        )
+
+    def removeXYImage(self, name: str) -> None:
+        self.currentDisplay = [
+            img for img in self.currentDisplay if img["name"] != name
+        ]
+
+    def clear(self) -> None:
+        self.currentDisplay.clear()
+
+
+def start_touch(x: float, y: float):
+    wts.widget_touchscreen_listener(
+        DeviceEvent(
+            "touchscreen",
+            None,
+            "symbol touched 100 100",
+            (
+                0,
+                0,
+                0,
+                x,
+                y,
+            ),
+        )
+    )
 
 
 class WTouchScreen(QWidget):
@@ -554,77 +625,6 @@ class WTouchScreen(QWidget):
                 (name, img["id"], 0, 0, x, y),
             )
         )
-
-
-class VirtualTouchScreen:
-    """A mock TouchScreen with the same interface as TouchScreen, for testing
-    WTouchScreen without a physical device."""
-
-    def __init__(self, name: str = "TouchScreen"):
-        self.name = name
-        self.enabled: bool = True
-        self.currentDisplay: list[dict[str, Any]] = []
-        self.deviceListeners: list[Callable] = []
-
-    def addDeviceListener(self, listener: Callable) -> None:
-        self.deviceListeners.append(listener)
-
-    def removeDeviceListener(self, listener: Callable) -> None:
-        self.deviceListeners.remove(listener)
-
-    def fireEvent(self, event: DeviceEvent) -> None:
-        for listener in self.deviceListeners:
-            listener(event)
-
-    def getCurrentImageList(self) -> list[dict[str, Any]]:
-        return self.currentDisplay
-
-    def setXYImage(
-        self,
-        name: str,
-        id: int,
-        centerX: float,
-        centerY: float,
-        rotation: float,
-        scale: float,
-    ) -> None:
-        name = name.replace(" ", "_")
-        self.currentDisplay.append(
-            {
-                "name": name,
-                "type": "xy",
-                "id": id,
-                "centerX": centerX,
-                "centerY": centerY,
-                "rotation": rotation,
-                "scale": scale,
-            }
-        )
-
-    def removeXYImage(self, name: str) -> None:
-        self.currentDisplay = [
-            img for img in self.currentDisplay if img["name"] != name
-        ]
-
-    def clear(self) -> None:
-        self.currentDisplay.clear()
-
-
-def start_touch(x: float, y: float):
-    wts.widget_touchscreen_listener(
-        DeviceEvent(
-            "touchscreen",
-            None,
-            "symbol touched 100 100",
-            (
-                0,
-                0,
-                0,
-                x,
-                y,
-            ),
-        )
-    )
 
 
 if __name__ == "__main__":

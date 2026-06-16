@@ -179,40 +179,40 @@ class Phase:
 
     @classmethod
     def get(cls, id: int | str) -> Phase:
-        """Get a Phase object by its name or rank."""
+        """Get a Phase object by its name or order."""
         name = None
-        rank = None
+        order = None
 
         if isinstance(id, int):
-            rank = id
+            order = id
         if isinstance(id, str):
             name = id
 
         for phase in cls.ALL:
             if name and phase.name == name:
                 return phase
-            if rank and phase.rank == rank:
+            if order and phase.order == order:
                 return phase
         raise ValueError(f"Phase ID '{id}' ({type(id)}) not found.")
 
     @classmethod
     def get_first(cls) -> Phase:
-        """Get the first Phase object based on rank."""
+        """Get the first Phase object based on order."""
         if not cls.ALL:
             raise ValueError("No phases available.")
-        return min(cls.ALL, key=lambda phase: phase.rank)
+        return min(cls.ALL, key=lambda phase: phase.order)
 
     @classmethod
     def get_last(cls) -> Phase:
-        """Get the last Phase object based on rank."""
+        """Get the last Phase object based on order."""
         if not cls.ALL:
             raise ValueError("No phases available.")
-        return max(cls.ALL, key=lambda phase: phase.rank)
+        return max(cls.ALL, key=lambda phase: phase.order)
 
     def __init__(
         self,
         name: str,
-        rank: int,
+        order: int,
         criteria: Criteria,
         force_correct_image: TSImage | None = None,
         use_opposite: bool = False,
@@ -225,9 +225,9 @@ class Phase:
         name : str
             Name of the phase, used for display and identification. Must be
             unique among all phases.
-        rank : int
-            Rank of the phase, used for ordering all phases. The lower the
-            rank, the earlier the phase. Must be unique among all phases.
+        order : int
+            Order of the phase, used for ordering all phases. The lower the
+            order, the earlier the phase. Must be unique among all phases.
         criteria : Criteria
             Criteria for phase completion.
         force_correct_image : TSImage | None, optional
@@ -242,17 +242,17 @@ class Phase:
         for phase in Phase.ALL:
             if phase.name == name:
                 raise ValueError(f"Phase name '{name}' already exists.")
-            if phase.rank == rank:
-                raise ValueError(f"Phase rank '{rank}' already exists.")
+            if phase.order == order:
+                raise ValueError(f"Phase order '{order}' already exists.")
 
         self.name: str = name.replace("-", "_")
-        self.rank: int = rank
+        self.order: int = order
         self.criteria: Criteria = criteria
         self.force_correct_image: TSImage | None = force_correct_image
         self.use_opposite: bool = use_opposite
 
         Phase.ALL.append(self)
-        Phase.ALL.sort(key=lambda p: p.rank)
+        Phase.ALL.sort(key=lambda p: p.order)
 
     def __str__(self) -> str:
         return f"{Phase.ALL.index(self):02d}-{self.name}"
@@ -425,9 +425,9 @@ class Animal:
         self.trials_dic: dict[datetime, bool] = {}
         """Dict with datetime keys when animal performs a trial,
         True= success, False= fail."""
-        self.left_touch_dic: dict[datetime, bool] = {}
+        self.touch_left_dic: dict[datetime, bool] = {}
         """Dict with datetime keys when touchscreen is touched meaningfully,
-        True= choose left, False= choose right."""
+        True= touch left, False= touch right."""
         self.rewards_dic: dict[datetime, bool] = {}
         """Dict with datetime keys when a reward is delivered,
         True= reward picked, False= reward not picked."""
@@ -475,9 +475,9 @@ class Animal:
             for date, result in self.trials_dic.items()
         }
 
-        dic["choice_left_dic"] = {
+        dic["touch_left_dic"] = {
             self.datetime_to_str(date): result
-            for date, result in self.left_touch_dic.items()
+            for date, result in self.touch_left_dic.items()
         }
 
         dic["rewards_picked"] = {
@@ -524,9 +524,9 @@ class Animal:
             for date, result in dic["trials_dic"].items()
         }
 
-        instance.left_touch_dic = {
+        instance.touch_left_dic = {
             cls.str_to_datetime(date): result
-            for date, result in dic["choice_left_dic"].items()
+            for date, result in dic["touch_left_dic"].items()
         }
 
         instance.rewards_dic = {
@@ -547,14 +547,14 @@ class Animal:
         self.trials_dic[datetime.now()] = result
         self.progression_display = self.phase.criteria.get_progression(self)
 
-    def add_side_choice(self, choose_left: bool):
-        """Save a side choice in 'left_touch_dic', True if left, False
+    def add_side_touch(self, touch_left: bool):
+        """Save a side touch in 'touch_left_dic', True if left, False
         otherwise."""
-        self.left_touch_dic[datetime.now()] = choose_left
+        self.touch_left_dic[datetime.now()] = touch_left
 
-    def add_picked_reward(self, picked: bool):
-        """Save a reward picked in 'rewards_dic', True if picked, False
-        otherwise."""
+    def add_reward_search(self, picked: bool):
+        """Save a reward search in 'rewards_dic', True if reward picked, False
+        if no reward was available."""
         self.rewards_dic[datetime.now()] = picked
         self.progression_display = self.phase.criteria.get_progression(self)
 
@@ -659,6 +659,9 @@ class Room:
         """Name of the room, used for display and identification. Must be
         unique among all rooms."""
 
+        self.state: str = "EXIT"
+        """State of the room, reflecting the animal's actions."""
+
         self.animal_in: Animal | None = None
         """Animal currently in the room, None if no animal."""
 
@@ -707,7 +710,7 @@ class Room:
         if display_log:
             logging.info(
                 "[init_hardware] "
-                f"room-device: {self.gate.name} "
+                f"device: {self.gate.name} "
                 f"COM_SERVO: {self.gate.COM_Servo} "
                 f"COM_ARDUINO: {self.gate.COM_Arduino} "
                 f"COM_RFID: {self.gate.COM_RFID} "
@@ -725,7 +728,7 @@ class Room:
         if display_log:
             logging.info(
                 "[init_hardware] "
-                f"room-device: {self.ts.name} "
+                f"device: {self.ts.name} "
                 f"COM_PORT: {self.ts.comPort} "
             )
 
@@ -737,7 +740,7 @@ class Room:
         if display_log:
             logging.info(
                 "[init_hardware] "
-                f"room-device: {self.wp.name} "
+                f"device: {self.wp.name} "
                 f"COM_PORT: {self.wp.comPort} "
             )
 
@@ -752,22 +755,40 @@ class Room:
 
     def touchscreen_listener(self, event: DeviceEvent):
         """Function called by the touchscreen when it fires an event."""
-        logging.info(f"[touchscreen_event] event: {event.description} ")
+        logging.debug(f"[touchscreen_event] event: {event.description} ")
 
         if not self.ts.enabled:
             logging.info(
                 "[warning] [touchscreen_event] "
-                f"room-device: {self.ts.name} "
+                f"room: {str(self)} "
                 f"touchscreen: DISABLED "
             )
             return
 
-        if self.animal_in is None:
+        animal = self.animal_in
+        if animal is None:
             self.log_animal_in_error("touchscreen_listener")
             return
-        animal = self.animal_in
 
         if "symbol xy touched" in event.description:
+            # data: name, id, x, y, xf, yf
+            if event.data is not None:
+                img_name = event.data[0]
+                img_id = event.data[1]
+                img_x = event.data[2]
+                img_y = event.data[3]
+                touch_x = event.data[4]
+                touch_y = event.data[5]
+                logging.info(
+                    f"[useful_touch] room: {str(self)} "
+                    f"rfid: {animal} "
+                    f"image_name: {img_name} "
+                    f"image_id: {img_id} "
+                    f"image_x: {img_x} "
+                    f"image_y: {img_y} "
+                    f"touch_x: {touch_x} "
+                    f"touch_y: {touch_y} "
+                )
 
             correct_image = animal.phase.force_correct_image
             if correct_image is None:
@@ -785,15 +806,19 @@ class Room:
                 )
                 return
 
+            # choosen side
+            # ----------------
             choice_str = "side_unknown"
             if "left_image" in event.description:
                 choice_str = "left"
-                animal.add_side_choice(choose_left=True)
+                animal.add_side_touch(touch_left=True)
 
             if "right_image" in event.description:
                 choice_str = "right"
-                animal.add_side_choice(choose_left=False)
+                animal.add_side_touch(touch_left=False)
 
+            # correct answer
+            # ----------------
             if str(correct_image) in event.description:
                 logging.info(
                     f"[trial_result] room: {str(self)} "
@@ -812,12 +837,14 @@ class Room:
                 if self.expe_data_saver:
                     self.expe_data_saver(True, False)
 
+            # incorrect answer
+            # ----------------
             if str(correct_image.get_opposite()) in event.description:
                 logging.info(
                     f"[trial_result] room: {str(self)} "
                     f"rfid: {animal} "
-                    f"phase: {str(animal.phase)} "
                     f"attribution: {str(animal.correct_image)} "
+                    f"phase: {str(animal.phase)} "
                     f"solution: {str(correct_image)} "
                     f"chosen_side: {choice_str} "
                     f"result: FAIL "
@@ -830,28 +857,45 @@ class Room:
                 if self.expe_data_saver:
                     self.expe_data_saver(True, False)
 
+        # Unused touches
+        # ----------------
+        if "missed" in event.description:
+            # data: xf, yf
+            if event.data is not None:
+                touch_x = event.data[0]
+                touch_y = event.data[1]
+                logging.info(
+                    f"[useless_touch] room: {str(self)} "
+                    f"rfid: {animal} "
+                    f"touch_x: {touch_x} "
+                    f"touch_y: {touch_y} "
+                )
+
     def waterpump_listener(self, event: DeviceEvent):
         """Function called by the waterpump when it fires an event."""
-        logging.info(f"[waterpump_event] event: {event.description} ")
+        logging.debug(f"[waterpump_event] event: {event.description} ")
 
-        if self.animal_in is None:
+        animal = self.animal_in
+        if animal is None:
             self.log_animal_in_error("waterpump_listener")
             return
-        else:
-            animal = self.animal_in
 
         if "reward picked" in event.description:
-            if self.wp.rewardDelivered and self.wp.rewardPicked:
-                animal.add_picked_reward(True)
-                logging.info(f"[reward_picking] rfid: {animal} reward: picked")
-                self.set_trial_state()
-            else:
-                animal.add_picked_reward(False)
-                logging.info(
-                    "[reward_picking] "
-                    f"rfid: {animal} "
-                    f"reward: try_picking_but_no_reward"
-                )
+            animal.add_reward_search(True)
+            logging.info(
+                f"[reward_search] room: {str(self)} "
+                f"rfid: {animal} "
+                f"find: reward"
+            )
+            self.set_trial_state()
+
+        if "animal in" in event.description:
+            animal.add_reward_search(False)
+            logging.info(
+                f"[reward_search] room: {str(self)} "
+                f"rfid: {animal} "
+                f"find: nothing"
+            )
 
     def get_all_devices(self) -> list[Any]:
         """Get all devices of the room in a list."""
@@ -862,7 +906,7 @@ class Room:
         self.gate.mouseAverageWeight = weight
         logging.info(
             "[gate_expected_weight] "
-            f"room-device: {self.gate.name} "
+            f"device: {self.gate.name} "
             f"expected_weight_set_to_(g): {weight}"
         )
 
@@ -902,7 +946,7 @@ class Room:
 
         logging.info(
             "[touchscreen_display] "
-            f"room-device: {self.ts.name} "
+            f"room: {str(self)} "
             f"left: {str(left_img)} "
             f"right: {str(right_img)} "
             f"id_left: {left_img.get_image_id()} "
@@ -934,7 +978,7 @@ class Room:
 
         logging.info(
             f"[touchscreen_random_display] "
-            f"room-device: {self.ts.name} "
+            f"room: {str(self)} "
             f"image: {str(img)} "
             f"opposite: {str(img.get_opposite())} "
         )
@@ -961,7 +1005,7 @@ class Room:
 
         logging.info(
             "[touch_simulation] "
-            f"room-device: {self.ts.name} "
+            f"room: {str(self)} "
             f"img_touch: {img_name} "
         )
 
@@ -981,7 +1025,7 @@ class Room:
             self.wp.flush(255, flush_duration)
             logging.info(
                 "[reward_flushing] "
-                f"room-device: {self.wp.name} "
+                f"room: {str(self)} "
                 f"flush_duration_(ms): {flush_duration}"
             )
 
@@ -989,16 +1033,19 @@ class Room:
         """Set room in INITIAL state. Called by *gate_listener* when an animal
         enters the room."""
         self.cancel_all_timers()
-        self.clear_state()
 
         self.animal_in = animal
         logging.info(
             "[animal_in] "
             f"room: {str(self)} "
-            f"animal: {self.animal_in.rfid} "
+            f"rfid: {self.animal_in.rfid} "
+            f"phase: {str(self.animal_in.phase)} "
+            f"attribution: {str(self.animal_in.correct_image)} "
         )
-        logging.info(f"[room_state] room: {str(self)} state: INITIAL")
+        self.clear_state()
 
+        self.state = "INITIAL"
+        logging.info(f"[room_state] room: {str(self)} state: {self.state}")
         self.set_trial_state()
 
     def set_exit_state(self):
@@ -1007,30 +1054,28 @@ class Room:
         self.cancel_all_timers()
         self.clear_state(500)
 
-        logging.info(f"[room_state] room: {str(self)} state: EXIT")
+        self.state = "EXIT"
+        logging.info(f"[room_state] room: {str(self)} state: {self.state}")
 
-        if self.animal_in is None:
+        animal = self.animal_in
+        if animal is None:
             self.log_animal_in_error("set_exit_state")
         else:
             logging.info(
                 "[animal_progression] "
-                f"rfid: {self.animal_in} "
-                f"{' '.join(self.animal_in.progression_display)}"
+                f"rfid: {animal} "
+                f"{' '.join(animal.progression_display)}"
             )
-            if self.animal_in.phase_completed():
-                previous_phase = self.animal_in.phase
-                self.animal_in.proceed_to_next_phase()
+            if animal.phase_completed():
+                previous_phase = animal.phase
+                animal.proceed_to_next_phase()
                 logging.info(
                     "[phase_completion] "
-                    f"rfid: {self.animal_in} "
+                    f"rfid: {animal} "
                     f"completed_phase: {previous_phase} "
-                    f"current_phase: {self.animal_in.phase}"
+                    f"current_phase: {animal.phase}"
                 )
-            logging.info(
-                "[animal_out] "
-                f"room: {str(self)} "
-                f"animal: {self.animal_in.rfid} "
-            )
+            logging.info(f"[animal_out] room: {str(self)} rfid: {animal.rfid}")
         if self.expe_data_saver:
             self.expe_data_saver(True, True)
         self.animal_in = None
@@ -1041,12 +1086,14 @@ class Room:
         self.cancel_all_timers()
         self.clear_state()
 
-        logging.info(f"[room_state] room: {str(self)} state: SUCCESS")
+        self.state = "SUCCESS"
+        logging.info(f"[room_state] room: {str(self)} state: {self.state}")
+
         self.wp.deliverDrop(reward_size)
         self.wp.lightOn(30)
         logging.info(
             "[reward_delivery] "
-            f"room-device: {self.wp.name} "
+            f"room: {str(self)} "
             f"reward_size: {reward_size}"
         )
         self.ts.enabled = True
@@ -1055,7 +1102,10 @@ class Room:
         """Set room in FAIL state."""
         self.cancel_all_timers()
         self.clear_state(1000)
-        logging.info(f"[room_state] room: {str(self)} state: FAIL")
+
+        self.state = "FAIL"
+        logging.info(f"[room_state] room: {str(self)} state: {self.state}")
+
         self.start_timer(wait_time, self.set_trial_state)
         self.ts.enabled = True
 
@@ -1066,16 +1116,18 @@ class Room:
         if self.expe_data_saver:
             self.expe_data_saver(True, False)
 
-        if self.animal_in is None:
+        animal = self.animal_in
+        if animal is None:
             self.log_animal_in_error("set_trial_state")
             return
 
         self.clear_state()
 
-        self.ts_random_display(self.animal_in.get_correct_image())
-        self.ts.enabled = True
+        self.state = "TRIAL"
+        logging.info(f"[room_state] room: {str(self)} state: {self.state}")
 
-        logging.info(f"[room_state] room: {str(self)} state: TRIAL")
+        self.ts_random_display(animal.get_correct_image())
+        self.ts.enabled = True
 
 
 class VisualDiscriminationExperiment:
@@ -1178,6 +1230,10 @@ class VisualDiscriminationExperiment:
         logging.info(f"NAME: {self.info.name}")
         logging.info(f"DATE: {current_date}")
         logging.info(f"COMMENT: {self.info.comment}")
+
+        logging.info(
+            f"[all_rooms] {' '.join([room.name for room in Room.ALL])} "
+        )
 
     # ================ EXPERIMENT MANAGEMENT ================
 
@@ -1283,7 +1339,7 @@ class VisualDiscriminationExperiment:
 
         if not detailed_log:
             logging.info(
-                f"[animal_saving] all_rfid: {" ".join(self.animals.keys())} "
+                f"[animal_saving] all_rfid: {' '.join(self.animals.keys())} "
             )
 
         for rfid, animal in self.animals.items():
@@ -1398,13 +1454,24 @@ class VisualDiscriminationExperiment:
 
     def gate_listener(self, event: DeviceEvent):
         """Function called by the gates when they fire an event."""
-        logging.info(f"[gate_event] event: {event.description} ")
+        logging.debug(f"[gate_event] event: {event.description} ")
         # get room and device corresponding to event
         device_name = event.deviceObject.name  # type: ignore
         room = self.get_room(name=device_name)
 
         if room is None:
             return
+
+        # Animal weight
+        # ----------------
+        if "WEIGHT OK" in event.description:
+            weight = float(event.description.split(" ")[-1])
+            logging.info(
+                "[animal_weight] "
+                f"room: {str(room)} "
+                f"rfid: {room.animal_in} "
+                f"weight_(g): {weight} "
+            )
 
         # Animal in
         # ----------------
@@ -1418,7 +1485,7 @@ class VisualDiscriminationExperiment:
 
         # get animal corresponding to RFID in room, if exist
         if room.animal_in is None:
-            logging.info(
+            logging.debug(
                 "[warning] "
                 "[gate_listener] "
                 f"room: {str(room)} "
@@ -1437,74 +1504,3 @@ class VisualDiscriminationExperiment:
         # reading time ?
         # animal weight ?
 
-
-# ================ EXAMPLE EXPERIMENT ================
-def setup_example_experiment():
-    """Set up the example experiment parameters.
-    - create a room (rA) with its devices (gate, touchscreen and waterpump)
-    - create all 4 phases (BLACK_WHITE, FLOWER_PLANE, REVERSAL, END)
-    - return the list of images to attribute to the animals
-
-    The rooms and phases created are accessible in the lists `Room.ALL` and
-    `Phase.ALL`, and the images to attribute are used as input for the
-    `VisualDiscriminationExperiment` class.
-    """
-
-    # Images
-    # ----------------
-    images_to_attribute = [TSImage.PLANE, TSImage.FLOWER]
-
-    # Phases creation
-    # ----------------
-    Phase(
-        "BLACK_WHITE",
-        1,
-        Criteria(min_rewards=10, min_trials=50),
-        force_correct_image=TSImage.LIGHT,
-    )
-    Phase("FLOWER_PLANE", 2, Criteria(accuracy=(0.8, 50)))
-    Phase("REVERSAL", 3, Criteria(accuracy=(0.8, 50)), use_opposite=True)
-    Phase("END", 4, Criteria(), force_correct_image=TSImage.DARK)
-
-    # Room creation
-    # ----------------
-    wp_alpha = WaterPump(comPort="COM22")
-    ts_alpha = TouchScreen(comPort="COM20")
-    gate_alpha = Gate(
-        COM_Servo="COM36",
-        COM_Arduino="COM30",
-        COM_RFID="COM27",
-        weightFactor=0.6,
-        mouseAverageWeight=25,
-    )
-    gate_alpha.setOrder(
-        GateOrder.ONLY_ONE_ANIMAL_IN_B,
-        options=["no rfid check on return"],
-    )
-
-    Room(
-        name="rA",
-        gate=gate_alpha,
-        touchscreen=ts_alpha,
-        waterpump=wp_alpha,
-    )
-
-    # Global recording
-    # ----------------
-    cam_recorder = CameraRecorder(
-        deviceNumber=0, bufferDurationS=50, showStream=True
-    )  # for saving videos
-
-    sensors = RoomSensorDigest(
-        comPort="COM25",
-        delayS=5 * 60,
-    )  # get environment data every 5 minutes
-
-    return images_to_attribute, sensors, cam_recorder
-
-
-if __name__ == "__main__":
-
-    print("Starting experiment...")
-    example = VisualDiscriminationExperiment(*setup_example_experiment())
-    print("...Ending experiment.")

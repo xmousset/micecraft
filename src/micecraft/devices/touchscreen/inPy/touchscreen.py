@@ -21,7 +21,7 @@ class TouchScreen:
         print("Starting TouchScreen")
         
         print("Starting serial...")
-        self.ser = serial.Serial("/dev/ttyS0",baudrate=115200, writeTimeout=2, timeout=0) #115200
+        self.ser = serial.Serial("/dev/ttyS0",baudrate=115200, write_timeout=2, timeout=0) #115200
         #,parity=serial.PARITY_ODD,stopbits = serial.STOPBITS_TWO,bytesize= serial.SEVENBITS
         
         print( self.ser.name )
@@ -121,7 +121,12 @@ class TouchScreen:
     def getImageName( self, index ):
         return self.images[index][1]
 
-    def createStripesImage( self, white_height: int, black_height: int, angle: float ) -> pygame.Surface:
+    def createStripesImage(
+        self,
+        white_height: int,
+        black_height: int,
+        angle: float
+    ) -> pygame.Surface:
 
         stripe_height = max(0, int(white_height)) + max(0, int(black_height))
         if stripe_height <= 0:
