@@ -27,12 +27,11 @@ from PyQt6.QtWidgets import QApplication, QMenu, QWidget
 from micecraft.soft.gui.WBlock import WBlock
 from micecraft.devices.gate.gui.WGate import WGate
 from micecraft.devices.waterpump.gui.WPump import WPump
-from micecraft.devices.touchscreen.gui.WTouchScreen import WTouchScreen
+from micecraft.devices.touchscreen.gui.WTouchScreenTooSides import WTouchScreen
 from micecraft.soft.gui.WMouse import WMouse
 from micecraft.soft.gui.VisualStorageAlarm import VisualStorageAlarm
 
 from micecraft.examples.experiments.visualdiscrimination.experiment import (
-    setup_example_experiment,
     TSImage,
     VisualDiscriminationExperiment,
 )
@@ -71,14 +70,14 @@ class UserAction:
 class VisualRoom:
     """Class to visually represent a room in the experiment, with its gate,
     block, and water pump. The rooms are stored in the class variable ALL, and
-    can be retrieved by name using the get_from_name static method."""
+    can be retrieved by name using the get_from_name class method."""
 
     ALL: list[VisualRoom] = []
 
-    @staticmethod
-    def get_from_name(name: str) -> VisualRoom | None:
+    @classmethod
+    def get_from_name(cls, name: str) -> VisualRoom | None:
         """Get the VisualRoom object with the name 'name' in ALL."""
-        for room in VisualRoom.ALL:
+        for room in cls.ALL:
             if str(room) == name:
                 return room
         return None
@@ -526,35 +525,3 @@ def excepthook(type_, value, traceback_):
     except Exception:
         print(f"Exception: {type_.__name__}: {value}")
     QtCore.qFatal("")
-
-
-if __name__ == "__main__":
-
-    sys.excepthook = excepthook
-    app = QApplication([])
-
-    interface = VisualDiscriminationInterface()
-    app.aboutToQuit.connect(interface.shutdown)
-    experiment = VisualDiscriminationExperiment(*setup_example_experiment())
-
-    interface.set_experiment(experiment)
-
-    room_names = [room.name for room in experiment.get_all_rooms()]
-    VisualRoom(
-        parent=interface,
-        name=str(room_names[0]),
-        gate_pos=(2, 0),
-        gate_touchscreen_direction="right",
-    )
-
-    interface.init_house(house_size=(2, 1))
-    interface.init_rooms()
-
-    interface.resize(1000, 400)
-    interface.setWindowTitle("MiceCraft - Visual Discrimination Example")
-
-    interface.start()
-    interface.show()
-    interface.raise_()
-
-    sys.exit(app.exec())
