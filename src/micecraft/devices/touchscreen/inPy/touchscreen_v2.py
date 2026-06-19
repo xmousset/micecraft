@@ -44,16 +44,18 @@ class ScreenImage:
     def __init__(
         self,
         surface: pygame.Surface,
-        x: int,
-        y: int,
+        cx: int,
+        cy: int,
         name: str,
     ):
         self.surface = surface
-        self.x = x
+        """pygame.Surface of the image to display"""
+        self.cx = cx
         """center of image in pixels"""
-        self.y = y
+        self.cy = cy
         """center of image in pixels"""
         self.name = name
+        """name of the image"""
 
     def __str__(self) -> str:
         return self.name
@@ -70,11 +72,6 @@ class ScreenTouches:
         pygame.draw.circle(self.surface, (0, 255, 0), (10, 10), 10)
 
 
-# ---------------------------------------------------------------------------
-# ScreenManager
-# ---------------------------------------------------------------------------
-
-
 class ScreenManager:
     """Pygame display manager.
 
@@ -84,19 +81,14 @@ class ScreenManager:
     """
 
     def __init__(self):
-        """Open a pygame window.
-
-        Args:
-            width:      Pixel width when not fullscreen.
-            height:     Pixel height when not fullscreen.
-            fullscreen: If True, width/height are ignored and the native
-                        display resolution is used.
-        """
+        """Open a pygame window."""
         pygame.init()
         self._surface = pygame.display.set_mode((0, 0), pygame.FULLSCREEN)
 
         pygame.display.set_caption("LMT TouchScreen")
         pygame.mouse.set_visible(False)
+
+        self.screen_full_size = pygame.display.get_window_size()
 
         self._w = self._surface.get_width()
         self._h = self._surface.get_height()
@@ -114,9 +106,8 @@ class ScreenManager:
         self._bg_color: tuple[int, int, int] = (0, 0, 0)
         self._clock = pygame.time.Clock()
 
-    # ------------------------------------------------------------------
-    # Active area
-    # ------------------------------------------------------------------
+    # Area
+    # ----------------
 
     def set_active_area(
         self,
@@ -139,9 +130,7 @@ class ScreenManager:
     def get_active_area(self) -> tuple[float, float, float, float]:
         return self._area
 
-    # ------------------------------------------------------------------
-    # Coordinate helpers
-    # ------------------------------------------------------------------
+    # ================ CONVERSION ================
 
     def norm_to_px(self, x_norm: float, y_norm: float) -> tuple[int, int]:
         """Active-area normalized (0..1) → pixel coordinates."""
@@ -166,9 +155,8 @@ class ScreenManager:
         """Full display size in pixels."""
         return self._w, self._h
 
-    # ------------------------------------------------------------------
-    # Images
-    # ------------------------------------------------------------------
+    # Image
+    # ----------------
 
     def add_image(
         self,
@@ -189,14 +177,17 @@ class ScreenManager:
         self._images[name] = ScreenImage(surface, cx, cy, name)
 
     def update_image_position(
-        self, name: str, x_norm: float, y_norm: float
+        self,
+        name: str,
+        x_norm: float,
+        y_norm: float,
     ) -> bool:
         """Move an already-added image to a new position.  Returns False if not found."""
         if name not in self._images:
             return False
         cx, cy = self.norm_to_px(x_norm, y_norm)
-        self._images[name].x = cx
-        self._images[name].y = cy
+        self._images[name].cx = cx
+        self._images[name].cy = cy
         return True
 
     def remove_image(self, name: str) -> None:
@@ -205,9 +196,8 @@ class ScreenManager:
     def clear_images(self) -> None:
         self._images.clear()
 
-    # ------------------------------------------------------------------
     # Touches
-    # ------------------------------------------------------------------
+    # ----------------
 
     def add_touch(self, touch_id, x_px: int, y_px: int) -> None:
         """Register an active touch point (pixel coordinates)."""
@@ -227,16 +217,15 @@ class ScreenManager:
             s: pygame.Surface = img.surface
             half_w = s.get_width() // 2
             half_h = s.get_height() // 2
-            cx, cy = img.x, img.y
+            cx, cy = img.cx, img.cy
             if (cx - half_w <= x_px <= cx + half_w) and (
                 cy - half_h <= y_px <= cy + half_h
             ):
                 hits.append(name)
         return hits
 
-    # ------------------------------------------------------------------
-    # Calibration overlay
-    # ------------------------------------------------------------------
+    # Calibration
+    # ----------------
 
     def set_show_calibration(self, enabled: bool) -> None:
         self._show_calibration = bool(enabled)
@@ -256,7 +245,7 @@ class ScreenManager:
 
         # Image center markers
         for img in self._images.values():
-            cx, cy = img.x, img.y
+            cx, cy = img.cx, img.cy
             pygame.draw.circle(self._surface, (255, 255, 0), (cx, cy), 6)
 
         # Active touch crosses
@@ -277,9 +266,8 @@ class ScreenManager:
                 4,
             )
 
-    # ------------------------------------------------------------------
     # Rendering
-    # ------------------------------------------------------------------
+    # ----------------
 
     def render(self, fps: int = 30) -> None:
         """Clear the display, blit all images, optionally draw calibration, flip."""
@@ -287,8 +275,8 @@ class ScreenManager:
 
         for img in self._images.values():
             s: pygame.Surface = img.surface
-            x = img.x - s.get_width() // 2
-            y = img.y - s.get_height() // 2
+            x = img.cx - s.get_width() // 2
+            y = img.cy - s.get_height() // 2
             self._surface.blit(s, (x, y))
 
         if self._show_calibration:
@@ -299,11 +287,6 @@ class ScreenManager:
 
     def quit(self) -> None:
         pygame.quit()
-
-
-# ---------------------------------------------------------------------------
-# TouchScreen
-# ---------------------------------------------------------------------------
 
 
 class TouchScreen:
@@ -350,9 +333,8 @@ class TouchScreen:
 
         print(f"[TouchScreen] serial: {getattr(self._ser, 'name', 'dummy')}")
 
-    # ------------------------------------------------------------------
     # Surface creation
-    # ------------------------------------------------------------------
+    # ----------------
 
     def load_image(
         self,
@@ -467,9 +449,8 @@ class TouchScreen:
         self._screen.add_image(surf, x_norm, y_norm, name)
         return surf
 
-    # ------------------------------------------------------------------
-    # Serial I/O
-    # ------------------------------------------------------------------
+    # Serial
+    # ----------------
 
     def send(self, message: str) -> None:
         """Write a newline-terminated UTF-8 string to serial."""
@@ -561,9 +542,8 @@ class TouchScreen:
             print(f"[serial] {cmd}")
             self._dispatch(cmd)
 
-    # ------------------------------------------------------------------
-    # Pygame event processing
-    # ------------------------------------------------------------------
+    # Processing
+    # ----------------
 
     def _process_events(self) -> None:
         """Handle pygame events for one frame."""
@@ -606,9 +586,8 @@ class TouchScreen:
         else:
             self.send(f"missed {finger_id} {x_px} {y_px}")
 
-    # ------------------------------------------------------------------
     # Main loop
-    # ------------------------------------------------------------------
+    # ----------------
 
     def step(self, fps: int = 30) -> bool:
         """Process one frame.  Returns False when the app should quit."""
@@ -627,11 +606,6 @@ class TouchScreen:
                 self._running = False
             sleep(0.001)
         self._screen.quit()
-
-
-# ---------------------------------------------------------------------------
-# Tests
-# ---------------------------------------------------------------------------
 
 
 def _run_loop(sm: ScreenManager, max_frames: int = 90, fps: int = 30) -> None:
@@ -768,10 +742,6 @@ def test_coordinate_conversion() -> None:
     sm.quit()
     print("[test] coordinate conversion OK")
 
-
-# ---------------------------------------------------------------------------
-# Entry point
-# ---------------------------------------------------------------------------
 
 if __name__ == "__main__":
     import sys
