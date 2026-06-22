@@ -127,24 +127,30 @@ class DisplayOnlyManager:
         unit: str,
         axis: str | None = None,
     ) -> int:
-        """Convert a value in pixels from pixels, centimeters, or ratio
-        (0.0 - 1.0).
+        """Convert a value in pixels from pixels, centimeters, area ratio,
+        or screen ratio (0.0 - 1.0).
 
-        **units**: "*px*", "*cm*", "*ratio*".
+        **units**: "*px*", "*cm*", "*ratio*", "*screen ratio*".
 
-        **ratio**: is relative to the bigger dimension of the displayed area.
+        **ratio**: (0.0 - 1.0) is relative to the specified axis of the
+        displayed area (or the full screen).
         """
         if unit == "px":
             return int(value)
         elif unit == "ratio":
-            # relative to the bigger dimension of the displayed area
             if axis not in ("x", "y"):
                 raise ValueError("Axis must be 'x' or 'y' for ratio unit")
-            w, h = self.area.get_size()
-            dim = w if axis == "x" else h
+            aw, ah = self.area.get_size()
+            dim = aw if axis == "x" else ah
             return int(value * dim)
         elif unit == "cm":
             return int(value * self.px_over_cm())
+        elif unit == "screen ratio":
+            if axis not in ("x", "y"):
+                raise ValueError("Axis must be 'x' or 'y' for ratio unit")
+            sw, sh = self.screen.get_size()
+            dim = sw if axis == "x" else sh
+            return int(value * dim)
         else:
             raise ValueError(f"Unknown unit: {unit}")
 
@@ -472,52 +478,56 @@ class DisplayOnlyManager:
     # ----------------
     def set_mode(
         self,
-        area_size: tuple[int, int],
-        area_center: tuple[int, int],
+        area_size: tuple[float, float],
+        area_center: tuple[float, float],
         area_rotation: float,
+        coord_unit: str = "px",
     ) -> None:
         """Set the display mode by specifying the active area size, center and
         rotation."""
         self.screen.fill((0, 0, 0))  # clear the display to black
-        self.set_area_size(*area_size)
-        self.set_area_parameters(area_rotation, area_center)
-        # self.render()
+
+        if coord_unit == "ratio":
+            coord_unit = "screen ratio"
+
+        aw = self.convert_to_px(area_size[0], coord_unit, "x")
+        ah = self.convert_to_px(area_size[1], coord_unit, "y")
+        self.set_area_size(aw, ah)
+
+        acx = self.convert_to_px(area_center[0], coord_unit, "x")
+        acy = self.convert_to_px(area_center[1], coord_unit, "y")
+        self.set_area_parameters(area_rotation, (acx, acy))
 
     def set_normal_mode(self) -> None:
         """Set the display to normal mode."""
         self.set_mode(
-            self.screen.get_size(),
-            (self.screen.get_width() // 2, self.screen.get_height() // 2),
-            0.0,
+            area_size=(1, 1),
+            area_center=(0.5, 0.5),
+            area_rotation=0,
+            coord_unit="screen ratio",
         )
 
     def set_mouse_mode(self) -> None:
         """Set the display to mouse mode."""
-        sw, sh = self.screen.get_size()
-        scx, scy = sw // 2, sh // 2
-
-        aw = sw
-        ah = sh // 2
-
-        acx = scx
-        acy = scy + ah // 2
-
-        angle = 0.0
-
-        self.set_mode((aw, ah), (acx, acy), angle)
+        self.set_mode(
+            area_size=(1, 0.5),
+            area_center=(0.5, 0.75),
+            area_rotation=0,
+            coord_unit="screen ratio",
+        )
 
     def set_rat_mode(self) -> None:
         """Set the display to rat mode."""
-        sw, sh = self.screen.get_size()
-
-        aw = sh
-        ah = sw // 4
-
-        acx = ah // 2
-        acy = aw // 2
-        angle = -90.0
-
-        self.set_mode((aw, ah), (acx, acy), angle)
+        aw = self.convert_to_px(1, "screen ratio", "y")
+        ah = self.convert_to_px(0.25, "screen ratio", "x")
+        acx = self.convert_to_px(0.125, "screen ratio", "x")
+        acy = self.convert_to_px(0.5, "screen ratio", "y")
+        self.set_mode(
+            area_size=(aw, ah),
+            area_center=(acx, acy),
+            area_rotation=-90,
+            coord_unit="px",
+        )
 
     # Rendering
     # ----------------
@@ -621,6 +631,18 @@ class TouchScreen:
 
     # Parameters
     # ----------------
+    def getScreenSize(self) -> tuple[int, int]:
+        """Return the size of the full screen in pixels."""
+        return self.display.screen.get_size()
+
+    def getAreaSize(self) -> tuple[int, int]:
+        """Return the size of the active area in pixels."""
+        return self.display.area.get_size()
+
+    def getImageSize(self) -> int:
+        """Return the size of images in pixels."""
+        return self.imageSize
+
     def setImageSize(
         self,
         size: int,
@@ -740,7 +762,7 @@ class TouchScreen:
             (self.imageSize, self.imageSize),
             flags=pygame.SRCALPHA,
         )
-        final.blit(surf, (x, y))
+        final.blit(surf, (-x, -y))
         return final
 
     def setXYImage(
@@ -1092,6 +1114,21 @@ class TouchScreen:
         elif "normalMode" in c[0]:
             # normalMode
             self.display.set_normal_mode()
+
+        elif "setMode" in c[0]:
+            # setMode <area_width> <area_height> <center_x> <center_y> <rotation_angle> <coord_unit>
+            area_width = float(c[1])
+            area_height = float(c[2])
+            center_x = float(c[3])
+            center_y = float(c[4])
+            rotation_angle = float(c[5])
+            coord_unit = c[6] if len(c) > 6 else "px"
+            self.display.set_mode(
+                (area_width, area_height),
+                (center_x, center_y),
+                rotation_angle,
+                coord_unit,
+            )
 
         elif "crash" in c[0]:
             raise Exception("Crash asked by user")
