@@ -659,6 +659,7 @@ class TouchScreen:
         **ratio**: is relative to the bigger dimension of the displayed area.
         """
         self.imageSize = self.display.convert_to_px(size, unit, axis)
+        self.load_all_images()
 
     # Calibration
     # ----------------
@@ -1250,10 +1251,10 @@ class TouchScreen:
                     self.display.touches_offset = (dx, dy - 1)
                     print("UP key hit: decrease touch offset along y")
                 elif event.key == pygame.K_KP_PLUS:
-                    self.setImageSize(self.imageSize + 1)
+                    self.setImageSize(self.imageSize + 10)
                     print("KP_PLUS key hit: increase image size")
                 elif event.key == pygame.K_KP_MINUS:
-                    self.setImageSize(self.imageSize - 1)
+                    self.setImageSize(self.imageSize - 10)
                     print("KP_MINUS key hit: decrease image size")
                 elif event.key == pygame.K_KP1:
                     self.setXYImage("KP0", 0, 0.25, 0.75, coord_unit="ratio")
@@ -1372,7 +1373,8 @@ class TouchScreen:
 
 
 if __name__ == "__main__":
-    ts = TouchScreen(test_mode=True)
+    TEST_MODE = False
+    ts = TouchScreen(TEST_MODE)
     ts.load_all_images()
     if ts.ser is None:
         print("=== TEST MODE ===")
