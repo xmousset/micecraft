@@ -55,11 +55,11 @@ class WMouse(QtWidgets.QWidget):
             txt="No RFID"
         if self.description !="":
             txt+="\n"+self.description
-        painter.drawText( QRect( 0,0,125,50) , Qt.AlignCenter, txt )
+        painter.drawText( QRect( 0,0,125,50) , Qt.AlignmentFlag.AlignCenter, txt )
 
-        painter.drawText( QRect( 5,5,20,10) , Qt.AlignCenter, str( self.number ) )
+        painter.drawText( QRect( 5,5,20,10) , Qt.AlignmentFlag.AlignCenter, str( self.number ) )
 
-        #painter.drawText( QRect( 0,20,125,50) , Qt.AlignCenter, self.description )
+        #painter.drawText( QRect( 0,20,125,50) , Qt.AlignmentFlag.AlignCenter, self.description )
 
         painter.end()
     
@@ -67,14 +67,14 @@ class WMouse(QtWidgets.QWidget):
     def mousePressEvent(self, event):
         self.__mousePressPos = None
         self.__mouseMovePos = None
-        if event.button() == QtCore.Qt.LeftButton:
+        if event.button() == QtCore.Qt.MouseButton.LeftButton:
             self.__mousePressPos = event.globalPos()
             self.__mouseMovePos = event.globalPos()
 
         super(WMouse, self).mousePressEvent(event)
 
     def mouseMoveEvent(self, event):
-        if event.buttons() == QtCore.Qt.LeftButton:
+        if event.buttons() == QtCore.Qt.MouseButton.LeftButton:
             # adjust offset from clicked point to origin of widget
             currPos = self.mapToGlobal(self.pos())
             globalPos = event.globalPos()

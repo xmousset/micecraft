@@ -27,12 +27,13 @@ from PyQt6.QtWidgets import QApplication, QMenu, QWidget
 from micecraft.soft.gui.WBlock import WBlock
 from micecraft.devices.gate.gui.WGate import WGate
 from micecraft.devices.waterpump.gui.WPump import WPump
+from micecraft.devices.touchscreen.gui.WTouchScreenTooSides import WTouchScreen
 from micecraft.soft.gui.WMouse import WMouse
 from micecraft.soft.gui.VisualStorageAlarm import VisualStorageAlarm
 
 from micecraft.examples.experiments.visualdiscrimination.experiment import (
-    VisualDiscriminationExperiment,
     TSImage,
+    VisualDiscriminationExperiment,
 )
 
 
@@ -40,16 +41,27 @@ class UserAction:
     """Class to link a callable action with its arguments and a log message.
     Used when user interacts with the interface."""
 
-    def __init__(self, action: Callable | None, *args) -> None:
+    def __init__(
+        self,
+        action: Callable,
+        action_args: tuple = (),
+        log: str | None = None,
+    ) -> None:
+        """Initialise the UserAction with the callable 'action', its arguments
+        'args', and the log message 'log' to display when the action is
+        executed."""
         self.action = action
-        self.args = args
-        self.log: str | None = None
+        self.args = action_args
+        self.log: str | None = log
 
     def exec(self):
         """Log if necessary and execute the callable 'action' with 'args' if
         the callable is not None."""
+        msg = f"[user_action] name: {self.action.__name__} "
         if self.log is not None:
-            logging.info(f"[user_action] " + self.log)
+            msg += f"log: {self.log}"
+
+        logging.info(msg)
 
         if self.action is not None:
             self.action(*self.args)
@@ -58,42 +70,76 @@ class UserAction:
 class VisualRoom:
     """Class to visually represent a room in the experiment, with its gate,
     block, and water pump. The rooms are stored in the class variable ALL, and
-    can be retrieved by name using the get_from_name static method."""
+    can be retrieved by name using the get_from_name class method."""
 
     ALL: list[VisualRoom] = []
 
-    @staticmethod
-    def get_from_name(name: str) -> VisualRoom | None:
+    @classmethod
+    def get_from_name(cls, name: str) -> VisualRoom | None:
         """Get the VisualRoom object with the name 'name' in ALL."""
-        for room in VisualRoom.ALL:
+        for room in cls.ALL:
             if str(room) == name:
                 return room
         return None
 
     def __init__(
         self,
+        parent: QWidget | None,
         name: str,
         gate_pos: tuple[int, int],
-        orientation: Literal["horizontal", "vertical"] = "horizontal",
+        gate_touchscreen_direction: (
+            str | Literal["top", "bottom", "left", "right"]
+        ) = "right",
     ) -> None:
+        self.parent = parent
         self.name: str = name
-        if orientation == "horizontal":
-            angle = 0
-            room_shift = (1, 0)
-        else:
-            angle = 90
-            room_shift = (0, 1)
 
-        self.gate: WGate = WGate(gate_pos[0], gate_pos[1], self)
-        self.gate.setName(name + "_gate")
-        self.gate.setAngle(angle)
+        gx, gy = gate_pos
 
-        self.block = WBlock(
-            room_shift[0] + gate_pos[0], room_shift[1] + gate_pos[1], self
-        )
-        self.block.setName(name + "_block")
-        self.wp: WPump = WPump(1 + gate_pos[0] + 0.4, gate_pos[1] - 0.4, self)
-        self.wp.setName(name + "_pump")
+        match gate_touchscreen_direction:
+            case "right":
+                bx, by = gx + 1, gy
+                wpx, wpy = bx + 0.4, by - 0.4
+                tsx, tsy = bx + 1, by + 0.5
+                gate_wp_angle = 0
+                ts_angle = 90
+            case "left":
+                bx, by = gx - 1, gy
+                wpx, wpy = bx + 0.4, by - 0.4
+                tsx, tsy = bx, by + 0.5
+                gate_wp_angle = 0
+                ts_angle = -90
+            case "top":
+                bx, by = gx, gy - 1
+                wpx, wpy = bx - 0.4, by
+                tsx, tsy = bx + 0.5, by
+                gate_wp_angle = -90
+                ts_angle = 0
+            case "bottom":
+                bx, by = gx, gy + 1
+                wpx, wpy = bx - 0.4, by
+                tsx, tsy = bx + 0.5, by + 1
+                gate_wp_angle = -90
+                ts_angle = 180
+            case _:
+                raise ValueError(
+                    "Invalid gate_touchscreen_direction: "
+                    f"{gate_touchscreen_direction!r}"
+                )
+
+        self.gate: WGate = WGate(gx, gy, self.parent)
+        self.gate.setName(name + "_Gate")
+        self.gate.setAngle(gate_wp_angle)
+
+        self.block = WBlock(bx, by, self.parent)
+        self.block.setName(name + "_Block")
+
+        self.wp: WPump = WPump(wpx, wpy, self.parent)
+        self.wp.setName(name + "_WP")
+        self.wp.setAngle(gate_wp_angle)
+
+        self.ts: WTouchScreen = WTouchScreen(tsx, tsy, ts_angle, self.parent)
+        self.ts.setName(name + "_TS")
 
         VisualRoom.ALL.append(self)
 
@@ -105,12 +151,13 @@ class VisualRoom:
         room = experiment.get_room(name=self.name)
         if room is None:
             logging.info(
-                "[warning] [visual_room_binding] " f"wrong_name {self.name} "
+                "[warning] [visual_room_binding] " f"wrong_name: {self.name} "
             )
             return
         self.gate.bindToGate(room.gate)
         room.gate.addDeviceListener(visual_listener)
         self.wp.bindToPump(room.wp)
+        self.ts.bindToTouchScreen(room.ts)
 
     def __str__(self) -> str:
         return self.name
@@ -126,7 +173,6 @@ class VisualDiscriminationInterface(QWidget):
         self.name = "Visual experiment monitoring"
         self.shutting_down = False
         self.animals: list[WMouse] = []
-        # self.gates : typing.List[WWGate] = []
         self.rooms: list[WBlock] = []
         self.painters: dict[str, QtGui.QPainter]
         self.visualStorageAlarm = None
@@ -149,14 +195,13 @@ class VisualDiscriminationInterface(QWidget):
         self.experiment.shutdown_experiment()
 
     def init_house(self, house_size: tuple[int, int] = (1, 1)):
-        """Create a block widget house at 'block_pos'= [0, 0] and place it in
-        'rooms' in first position.
+        """Create a block widget house at 'block_pos'= [0, 0].
 
         Parameters
         ----------
         house_size : tuple[int, int], optional
-            Define the number of blocks that compose the house. They will be
-            implemented along the x and y axes. By default (1, 1)
+            Define the number of blocks that compose the house (width, height).
+            By default (1, 1).
         """
         self.house = WBlock(
             0, 0, self
@@ -185,17 +230,22 @@ class VisualDiscriminationInterface(QWidget):
         )
 
         if house_void > 0:
+            found = False
             for x in range(house_pos_available[0]):
                 for y in range(house_pos_available[1]):
                     if 2 * (x + 1) * (y + 1) > len(self.animals):
                         animal_x += x * 200
                         animal_y += y * 200
+                        found = True
                         break
+                if found:
+                    break
         else:
-            animal_x = int(self.animals[-1].x)  # type: ignore
-            animal_y = int(self.animals[-1].y) + 100  # type: ignore
+            animal_x = int(self.animals[-1].x)
+            animal_y = int(self.animals[-1].y) + 100
 
         animal = WMouse(animal_x, animal_y, self)
+        animal.show()
         animal.number = number
 
         animal.vpos = {}
@@ -250,6 +300,9 @@ class VisualDiscriminationInterface(QWidget):
                 continue
 
             visual_room = VisualRoom.get_from_name(str(room))
+            if visual_room is None:
+                animal.vpos["target_location"] = animal.vpos["home"]
+                continue
 
             animal.vpos["target_location"] = (
                 visual_room.block.x + 40,  # type: ignore
@@ -297,7 +350,11 @@ class VisualDiscriminationInterface(QWidget):
             self.experiment.info.name,
         )
 
-        self.visualStorageAlarm.draw(painter, textRect=QtCore.QRect(625, 0, 50, 50))  # type: ignore
+        if self.visualStorageAlarm is not None:
+            self.visualStorageAlarm.draw(
+                painter,
+                textRect=QtCore.QRect(750, 320, 100, 50),
+            )
 
         self.set_animal_target()
 
@@ -335,23 +392,26 @@ class VisualDiscriminationInterface(QWidget):
 
         title = QtGui.QAction(self.name, menu)
         title.setDisabled(True)
+        menu.addAction(title)
 
-        menu.addSeparator()
         action_map: dict[QtGui.QAction | None, UserAction] = {}
 
+        menu.addSeparator()
         # rooms
         # ----------------
         title = QtGui.QAction("Rooms", menu)
         title.setDisabled(True)
-        menu.addSeparator()
+        menu.addAction(title)
 
         # rooms re-initialisation
         menu_action = QtGui.QAction("re-initialise all hardware", menu)
         user_action = UserAction(self.experiment.init_experiment)
         user_action.log = "re-init all hardware"
         action_map[menu_action] = user_action
+        menu.addAction(menu_action)
 
         # gate scale setting
+        nb_rooms = len(self.experiment.get_all_rooms())
         for room in self.experiment.get_all_rooms():
             gate = room.gate
             room_menu = QMenu(str(room), menu)
@@ -362,35 +422,49 @@ class VisualDiscriminationInterface(QWidget):
             weight_range = range(
                 gate.mouseAverageWeight - power_ten,
                 gate.mouseAverageWeight + power_ten,
-                power_ten / 10,
+                power_ten // 10,
             )
 
             for weight in weight_range:
                 weight_action = QtGui.QAction(f"{weight} g", weight_menu)
-                user_action = UserAction(room.set_animal_weight, weight)
+                user_action = UserAction(room.set_animal_weight, (weight,))
                 user_action.log = "expected weight modified"
                 action_map[weight_action] = user_action
                 if weight == gate.mouseAverageWeight:
                     weight_action.setCheckable(True)
                     weight_action.setChecked(True)
+                weight_menu.addAction(weight_action)
+
+            room_menu.addMenu(weight_menu)
 
             touch_action = QtGui.QAction("correct touch", room_menu)
-            user_action = UserAction(room.simulate_ts_event, True)
+            user_action = UserAction(room.simulate_ts_event, (True,))
             action_map[touch_action] = user_action
+            room_menu.addAction(touch_action)
 
             touch_action = QtGui.QAction("wrong touch", room_menu)
-            user_action = UserAction(room.simulate_ts_event, False)
+            user_action = UserAction(room.simulate_ts_event, (False,))
             action_map[touch_action] = user_action
+            room_menu.addAction(touch_action)
 
             display_action = QtGui.QAction("random display", room_menu)
-            user_action = UserAction(room.ts_random_display, TSImage.LIGHT)
+            user_action = UserAction(room.ts_random_display, (TSImage.LIGHT,))
             action_map[display_action] = user_action
+            room_menu.addAction(display_action)
 
+            if nb_rooms > 1:
+                menu.addMenu(room_menu)
+            else:
+                for action in room_menu.actions():
+                    room_menu.removeAction(action)
+                    menu.addAction(action)
+
+        menu.addSeparator()
         # animals
         # ----------------
         title = QtGui.QAction("Animals", menu)
         title.setDisabled(True)
-        menu.addSeparator()
+        menu.addAction(title)
 
         for rfid in self.experiment.get_all_rfid():
             rfid_menu = QMenu(rfid, menu)
@@ -402,6 +476,7 @@ class VisualDiscriminationInterface(QWidget):
                     self.experiment.animals[rfid].proceed_to_next_phase
                 )
                 action_map[menu_action] = user_action
+                rfid_menu.addAction(menu_action)
 
             # modify touchscreen image
             ts_image = self.experiment.get_ts_image(rfid)
@@ -409,12 +484,16 @@ class VisualDiscriminationInterface(QWidget):
             for img in list(TSImage):
                 menu_action = QtGui.QAction(img.name, ts_img_menu)
                 user_action = UserAction(
-                    self.experiment.set_ts_image, rfid, img
+                    self.experiment.set_ts_image, (rfid, img)
                 )
                 action_map[menu_action] = user_action
                 if ts_image == img:
                     menu_action.setCheckable(True)
                     menu_action.setChecked(True)
+                ts_img_menu.addAction(menu_action)
+
+            rfid_menu.addMenu(ts_img_menu)
+            menu.addMenu(rfid_menu)
 
         # menu execution
         # ----------------
@@ -422,48 +501,27 @@ class VisualDiscriminationInterface(QWidget):
         if action in action_map:
             action_map[action].exec()
         else:
-            logging.info(f"[user_action] user action canceled")
+            logging.info(f"[user_action] name: ACTION_CANCELED")
+
+    def set_experiment(self, experiment: VisualDiscriminationExperiment):
+        """Set the experiment for the interface."""
+        self.experiment = experiment
 
     def start(self):
-        """Initialise the application."""
-        self.experiment = VisualDiscriminationExperiment()
-
-        romm_names = [room.name for room in self.experiment.get_all_rooms()]
-        VisualRoom(
-            name=str(romm_names[0]),
-            gate_pos=(2, 0),
-            orientation="horizontal",
+        """Start the application."""
+        self.thread: threading.Thread = threading.Thread(  # type: ignore
+            target=self.monitor_GUI
         )
-
-        self.init_house()
-        self.init_rooms()
-
-        self.resize(1000, 400)
-        self.setWindowTitle("LMT blocks - gate rfid back test")
-
-        self.thread: threading.Thread = threading.Thread(target=self.monitor_GUI)  # type: ignore
         self.refresher.connect(self.on_refresh_data)
         self.thread.start()
 
         self.visualStorageAlarm = VisualStorageAlarm()
+        self.raise_()
 
 
 def excepthook(type_, value, traceback_):
-    traceback.print_exception(type_, value, traceback_)
+    try:
+        traceback.print_exception(type_, value, traceback_)
+    except Exception:
+        print(f"Exception: {type_.__name__}: {value}")
     QtCore.qFatal("")
-
-
-if __name__ == "__main__":
-
-    sys.excepthook = excepthook
-    app = QApplication([])
-
-    visualExperiment = VisualDiscriminationInterface()
-    app.aboutToQuit.connect(visualExperiment.shutdown)
-
-    visualExperiment.start()
-    visualExperiment.show()
-
-    sys.exit(app.exec())
-
-    print("*** End of program ***")

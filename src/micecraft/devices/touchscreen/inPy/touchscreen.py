@@ -21,7 +21,7 @@ class TouchScreen:
         print("Starting TouchScreen")
         
         print("Starting serial...")
-        self.ser = serial.Serial("/dev/ttyS0",baudrate=115200, writeTimeout=2, timeout=0) #115200
+        self.ser = serial.Serial("/dev/ttyS0",baudrate=115200, write_timeout=2, timeout=0) #115200
         #,parity=serial.PARITY_ODD,stopbits = serial.STOPBITS_TWO,bytesize= serial.SEVENBITS
         
         print( self.ser.name )
@@ -42,6 +42,13 @@ class TouchScreen:
         
         print( self.display_width )
         self.yOffset = 0
+        self.bg: tuple[int, int, float] | None = None
+        """None for black background, otherwise a tuple of
+        (white_height, black_height, angle) in pixels and degrees for
+        background with stripes."""
+        self.screen_diag = 1 + int(
+            math.hypot(self.display_width, self.display_height)
+        )
         
         self.mode = self.Mode.NORMAL
         self.inputBuffer = ""
@@ -61,6 +68,7 @@ class TouchScreen:
         self.nbRows = nbRows
         self.currentImages = {} # for images using the matrix format
         self.currentXYImages = {} # for independent images. Key is the name of the image
+        self.currentStripesImages: dict[str, tuple[pygame.Surface, int, int]] = {} # for stripes images.
         
         
         
@@ -113,6 +121,37 @@ class TouchScreen:
     def getImageName( self, index ):
         return self.images[index][1]
 
+    def createStripesImage(
+        self,
+        white_height: int,
+        black_height: int,
+        angle: float
+    ) -> pygame.Surface:
+
+        stripe_height = max(0, int(white_height)) + max(0, int(black_height))
+        if stripe_height <= 0:
+            return pygame.Surface((self.imageSize, self.imageSize), flags=pygame.SRCALPHA)
+
+        img_diag = int(math.ceil(math.hypot(self.imageSize, self.imageSize))) + stripe_height
+        surf = pygame.Surface((img_diag, img_diag), flags=pygame.SRCALPHA)
+
+        white_h = max(0, int(white_height))
+        black_h = max(0, int(black_height))
+        for y in range(0, img_diag, stripe_height):
+            if white_h > 0:
+                pygame.draw.rect(surf, self.white, (0, y, img_diag, white_h))
+            if black_h > 0:
+                pygame.draw.rect(surf, self.black, (0, y + white_h, img_diag, black_h))
+
+        rotated = pygame.transform.rotate(surf, angle % 180)
+
+        rx = rotated.get_width() // 2 - self.imageSize // 2
+        ry = rotated.get_height() // 2 - self.imageSize // 2
+        crop_rect = pygame.Rect(rx, ry, self.imageSize, self.imageSize)
+        crop_rect.clamp_ip(rotated.get_rect())
+        final = rotated.subsurface(crop_rect).copy()
+        return final
+
     def showImage( self, imageIndex , x , y ):
         x = int( self.getXCenter(x) - self.imageSize/2 )
         y = int ( self.getYCenter(y) -self.imageSize/2 )
@@ -142,6 +181,13 @@ class TouchScreen:
         
         self.gameDisplay.blit( i2, (x,y) )
     
+    def showXYStripesImage( self, name: str ):
+        surf, x, y = self.currentStripesImages[name]
+        
+        x = x - surf.get_width()//2
+        y = y - surf.get_height()//2
+        self.gameDisplay.blit( surf, (x,y) )
+    
     def setImage( self, imageIndex, x, y=1 ):
         self.currentImages[(x,y)] = imageIndex
         
@@ -156,11 +202,26 @@ class TouchScreen:
         if name in self.currentXYImages:
             self.currentXYImages.pop( name )
     
+    def setXYStripesImage(
+        self,
+        name: str,
+        white_height: int,
+        black_height: int,
+        angle: float,
+        x: int,
+        y: int,
+    ):
+        surf = self.createStripesImage( white_height, black_height, angle )
+        self.currentStripesImages[name] = (surf, x, y )
     
+    def removeXYStripesImage( self, name:str ):
+        if name in self.currentStripesImages:
+            self.currentStripesImages.pop( name )
+
     def removeAllImages( self ):
         self.currentImages={}
         self.currentXYImages = {}
-            
+        self.currentStripesImages = {}
     
     def getXCenter( self, x ):
         w = self.display_width/self.nbCols
@@ -178,6 +239,65 @@ class TouchScreen:
         for y in range( 1, self.nbRows+1 ):
             y = self.getYCenter( y )
             pygame.draw.line( self.gameDisplay, (255,0,0), (0,y), (self.display_width,y), 5)
+
+    def setBgStripes(self, white_height: int, black_height: int, angle: float):
+        """Configure full-screen white/black stripe pattern.
+        
+        Parameters:
+        -----------
+        white_height: int - height of white stripes in pixels (0 for no white stripes)
+        black_height: int - height of black stripes in pixels (0 for no black stripes)
+        angle: float - rotation angle of stripes in degrees (-90 to 90)
+        
+        Example usage:
+        --------------
+        ts.setStripes(white_height=20, black_height=20, angle=45)
+        
+        This would create a pattern of 20px white stripes alternating with
+        20px black stripes, rotated 45 degrees.
+        """
+        
+        self.bg = (
+            max(0, white_height),
+            max(0, black_height),
+            angle % 180
+        )
+    
+    def removeBg(self):
+        """Remove any stripe pattern and return to normal display."""
+        self.bg = None
+
+    def _draw_bg(self):
+        """Draw alternating white/black stripes filling the screen, rotated by angle."""
+        if self.bg is None:
+            self.gameDisplay.fill(self.black)
+            return
+
+        surf = pygame.Surface((self.screen_diag, self.screen_diag), flags=pygame.SRCALPHA)
+
+        stripe_height = self.bg[0] + self.bg[1]
+        if stripe_height <= 0:
+            self.gameDisplay.fill(self.black)
+            return
+        
+        for i in range(0, self.screen_diag, stripe_height):
+            if self.bg[0] > 0:
+                pygame.draw.rect(
+                    surf,
+                    self.white,
+                    (0, i, self.screen_diag, self.bg[0])
+                )
+            if self.bg[1] > 0:
+                pygame.draw.rect(
+                    surf,
+                    self.black,
+                    (0, i + self.bg[0], self.screen_diag, self.bg[1])
+                )
+
+        rotated = pygame.transform.rotate(surf, self.bg[2])
+        rx = int(self.display_width / 2 - rotated.get_width() / 2)
+        ry = int(self.display_height / 2 - rotated.get_height() / 2)
+        self.gameDisplay.blit(rotated, (rx, ry))
     
     def fingerDown( self, xf, yf ):
         # test if the symbol is touched
@@ -352,6 +472,7 @@ class TouchScreen:
                     
                 if "clear" in c[0]:
                     self.removeAllImages()
+                    self.removeBg()
                 
                 if "calibration" in c[0]:
                     if "show" in command:
@@ -361,6 +482,28 @@ class TouchScreen:
                         
                 if "crash" in c[0]:                    
                     raise Exception("Crash asked by user")
+                
+                if "setBgStripes" in c[0]:
+                    white = int(c[1])
+                    black = int(c[2])
+                    angle = float(c[3])
+                    self.setBgStripes(white, black, angle)
+                
+                if "removeBg" in c[0]:
+                    self.removeBg()
+                
+                if "setXYStripesImage" in c[0]:
+                    name = c[1]
+                    white = int(c[2])
+                    black = int(c[3])
+                    angle = float(c[4])
+                    x = int(c[5])
+                    y = int(c[6])
+                    self.setXYStripesImage( name, white, black, angle, x, y )
+                
+                if "removeXYStripesImage" in c[0]:
+                    name = c[1]
+                    self.removeXYStripesImage( name )
                 
         return command
 
@@ -446,7 +589,7 @@ class TouchScreen:
                 self.fingers.pop(event.finger_id, None)
                 print( "finger up" , event.finger_id )
 
-        self.gameDisplay.fill(self.black)
+        self._draw_bg()
         
         for coord,imageIndex in self.currentImages.items():
             x = coord[0]
@@ -455,6 +598,9 @@ class TouchScreen:
         
         for image in self.currentXYImages:
             self.showXYImage( image )
+        
+        for name in self.currentStripesImages:
+            self.showXYStripesImage( name )
         
         '''
         ts.showImage( 1, 2, 1 )
