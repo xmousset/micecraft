@@ -92,6 +92,12 @@ class DisplayOnlyManager:
         self.touches_offset: tuple[int, int] = (0, 0)
         """global offset of all touches (dx, dy) in pixels"""
 
+        self.touches_axis_inversion = (False, False)
+        """(invert_x, invert_y) whether to invert touch axes"""
+
+        self.touches_size = (40, 5)
+        """(size, thickness) of the cross in pixels."""
+
         self.show_calibration: bool = False
         """Whether to show calibration lines or not."""
 
@@ -207,6 +213,28 @@ class DisplayOnlyManager:
 
     # Touches
     # ----------------
+    def touch_to_screen_coords(
+        self,
+        value: float,
+        axis: str,
+        clip: bool = True,
+    ):
+        """Convert a normalized touch coordinate (0.0 - 1.0) to screen pixels."""
+        if axis not in ("x", "y"):
+            raise ValueError("Axis must be 'x' or 'y'")
+        ax = 0 if axis == "x" else 1
+        s_size = self.screen.get_size()
+        dim = s_size[ax]
+        if self.touches_axis_inversion[ax]:
+            value = 1.0 - value
+        coord = int(value * dim)
+        if clip:
+            coord = max(0, min(coord, dim))
+        else:
+            if coord < 0 or coord > dim:
+                return None
+        return coord
+
     def screen_to_area_coords(
         self, x: int, y: int
     ) -> tuple[tuple[int, int], bool]:
@@ -506,6 +534,7 @@ class DisplayOnlyManager:
             area_rotation=0,
             coord_unit="screen ratio",
         )
+        self.touches_axis_inversion = (True, True)
 
     def set_mouse_mode(self) -> None:
         """Set the display to mouse mode."""
@@ -515,6 +544,7 @@ class DisplayOnlyManager:
             area_rotation=0,
             coord_unit="screen ratio",
         )
+        self.touches_axis_inversion = (False, False)
 
     def set_rat_mode(self) -> None:
         """Set the display to rat mode."""
@@ -528,6 +558,7 @@ class DisplayOnlyManager:
             area_rotation=-90,
             coord_unit="px",
         )
+        self.touches_axis_inversion = (True, True)
 
     # Rendering
     # ----------------
@@ -551,10 +582,11 @@ class DisplayOnlyManager:
         for x, y in self.touches.values():
             x += self.touches_offset[0]
             y += self.touches_offset[1]
-            s = pygame.Surface((20, 20), pygame.SRCALPHA)
-            pygame.draw.line(s, (255, 133, 0), (5, 0), (5, 10))
-            pygame.draw.line(s, (255, 133, 0), (0, 5), (10, 5))
-            area.blit(s, (x - 5, y - 5))
+            ts, tt = self.touches_size
+            s = pygame.Surface((ts, ts), pygame.SRCALPHA)
+            pygame.draw.line(s, (0, 255, 0), (0, 0), (ts, ts), tt)
+            pygame.draw.line(s, (0, 255, 0), (0, ts), (ts, 0), tt)
+            area.blit(s, (x - ts // 2, y - ts // 2))
 
         # draw calibration if enabled
         if self.show_calibration:
@@ -672,16 +704,22 @@ class TouchScreen:
     # Finger touches
     # ----------------
 
-    def check_if_touch_on_image(self, x: int, y: int) -> None:
-        images_touched = self.display.hit_test(x, y)
+    def check_if_touch_on_image(
+        self,
+        area_pos: tuple[int, int],
+        screen_pos: tuple[int, int],
+    ) -> None:
+        ax, ay = area_pos
+        images_touched = self.display.hit_test(ax, ay)
         if images_touched:
             for image in images_touched:
                 self.send(
                     f"symbol xy touched {image.name} id {image.idx} "
-                    f"at {image.cx},{image.cy},{x},{y}"
+                    f"at {image.cx:.4f},{image.cy:.4f},"
+                    f"{screen_pos[0]},{screen_pos[1]}"
                 )
         else:
-            self.send(f"missed {x},{y}")
+            self.send(f"missed {screen_pos[0]},{screen_pos[1]}")
 
     # Surface creation
     # ----------------
@@ -1296,11 +1334,11 @@ class TouchScreen:
             # Mouse events (desktop testing)
             if event.type == pygame.MOUSEBUTTONDOWN:
                 x, y = pygame.mouse.get_pos()
-                (x, y), oob = self.display.screen_to_area_coords(x, y)
+                (ax, ay), oob = self.display.screen_to_area_coords(x, y)
                 if not oob:
-                    self.display.add_touch("mouse", x, y)
-                    print(f"mouse down: add touch ({x},{y})")
-                    self.check_if_touch_on_image(x, y)
+                    self.display.add_touch("mouse", ax, ay)
+                    print(f"mouse down: add touch ({ax},{ay})")
+                    self.check_if_touch_on_image((ax, ay), (x, y))
             if event.type == pygame.MOUSEBUTTONUP:
                 self.display.remove_touch("mouse")
                 print("mouse up: remove touch")
@@ -1308,13 +1346,15 @@ class TouchScreen:
             # Finger events (touchscreen)
             if event.type == pygame.FINGERDOWN:
                 # event values are normalized to [0.0, 1.0]
-                x = self.display.convert_to_px(event.x, "ratio", "x")
-                y = self.display.convert_to_px(event.y, "ratio", "y")
-                (x, y), oob = self.display.screen_to_area_coords(x, y)
+                x = self.display.touch_to_screen_coords(event.x, "x")
+                y = self.display.touch_to_screen_coords(event.y, "y")
+                if x is None or y is None:
+                    continue
+                (ax, ay), oob = self.display.screen_to_area_coords(x, y)
                 if not oob:
-                    self.display.add_touch(event.finger_id, x, y)
-                    print(f"finger down: add touch ({x},{y})")
-                    self.check_if_touch_on_image(x, y)
+                    self.display.add_touch(event.finger_id, ax, ay)
+                    print(f"finger down: add touch ({ax},{ay})")
+                    self.check_if_touch_on_image((ax, ay), (x, y))
             if event.type == pygame.FINGERUP:
                 self.display.remove_touch(event.finger_id)
                 self.send(f"finger up: {event.finger_id}")
