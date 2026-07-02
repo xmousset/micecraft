@@ -245,7 +245,7 @@ class ScreenTouch:
         """pygame.Surface of the touch to display"""
 
 
-class DisplayOnlyManager:
+class ScreenDisplayManager:
     """Pygame display manager.
 
     All image positions are expressed as normalized coordinates (0.0 - 1.0)
@@ -604,37 +604,25 @@ class DisplayOnlyManager:
             pygame.draw.rect(
                 cali, (255, 255, 255), (rx, ry, size_px, size_px), 2
             )
+            labels = []
             if i == 0:
-                label = f"{size_px} px"
-                txt = font.render(label, True, (255, 255, 255))
-                cali.blit(
-                    txt,
-                    (
-                        rx + (size_px - txt.get_width()) // 2,
-                        ry + (size_px - txt.get_height()) // 2,
-                    ),
-                )
+                labels.append(f"{size_px}")
+                labels.append("x")
+                labels.append(f"{size_px}")
+                labels.append("pixels")
             else:
                 size_ratio = self.px_to_area_ratio((size_px, size_px))
-                label = (
-                    f"{size_ratio[0]:.2f}\n"
-                    "x\n"
-                    f"{size_ratio[1]:.2f}\n"
-                    "area ratio"
-                )
-                lines = label.splitlines()
-                line_surfs = [
-                    font.render(l, True, (255, 255, 255)) for l in lines
-                ]
-                total_h = (
-                    sum(s.get_height() for s in line_surfs)
-                    + (len(line_surfs) - 1) * 4
-                )
-                oy = (size_px - total_h) // 2
-                for s in line_surfs:
-                    x = rx + (size_px - s.get_width()) // 2
-                    cali.blit(s, (x, ry + oy))
-                    oy += s.get_height() + 4
+                labels.append(f"{size_ratio[0]:.2f}")
+                labels.append("x")
+                labels.append(f"{size_ratio[1]:.2f}")
+                labels.append("area ratio")
+            txt = [font.render(l, True, (255, 255, 255)) for l in labels]
+            total_h = sum(s.get_height() for s in txt) + (len(txt) - 1) * 4
+            oy = (size_px - total_h) // 2
+            for s in txt:
+                x = rx + (size_px - s.get_width()) // 2
+                cali.blit(s, (x, ry + oy))
+                oy += s.get_height() + 4
 
         # Corners: indicate area coordinates
         # ----------------
@@ -812,7 +800,7 @@ class TouchScreen:
 
         self.last_error: str = ""
         self.input_buffer: str = ""
-        self.manager = DisplayOnlyManager()
+        self.manager = ScreenDisplayManager()
         self.running: bool = True
         self._loaded_images: dict[int, pygame.Surface] = {}
         """Dictionary of loaded images: id -> surface"""
