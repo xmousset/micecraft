@@ -43,7 +43,9 @@ class TouchScreen:
         self.yOffset = 0
         self.bg: pygame.Surface | None = None
         """None for black background, display the image otherwise."""
-        self.screen_diag = 1 + int(math.hypot(self.display_width, self.display_height))
+        self.screen_diag = 1 + int(
+            math.hypot(self.display_width, self.display_height)
+        )
 
         self.mode = self.Mode.FULLSCREEN
         self.inputBuffer = ""
@@ -128,10 +130,13 @@ class TouchScreen:
 
         stripe_height = max(0, int(white_height)) + max(0, int(black_height))
         if stripe_height <= 0:
-            return pygame.Surface((self.img_size, self.img_size), flags=pygame.SRCALPHA)
+            return pygame.Surface(
+                (self.img_size, self.img_size), flags=pygame.SRCALPHA
+            )
 
         img_diag = (
-            int(math.ceil(math.hypot(self.img_size, self.img_size))) + stripe_height
+            int(math.ceil(math.hypot(self.img_size, self.img_size)))
+            + stripe_height
         )
         surf = pygame.Surface((img_diag, img_diag), flags=pygame.SRCALPHA)
 
@@ -141,7 +146,9 @@ class TouchScreen:
             if white_h > 0:
                 pygame.draw.rect(surf, self.white, (0, y, img_diag, white_h))
             if black_h > 0:
-                pygame.draw.rect(surf, self.black, (0, y + white_h, img_diag, black_h))
+                pygame.draw.rect(
+                    surf, self.black, (0, y + white_h, img_diag, black_h)
+                )
 
         rotated = pygame.transform.rotate(surf, angle % 180)
 
@@ -285,13 +292,17 @@ class TouchScreen:
             return surf
 
         # create a square large enough to cover the rotated area
-        diag = int(math.ceil(math.hypot(self.display_width, self.display_height)))
+        diag = int(
+            math.ceil(math.hypot(self.display_width, self.display_height))
+        )
         img_size = diag + stripe_height
         temp = pygame.Surface((img_size, img_size), flags=pygame.SRCALPHA)
 
         for y in range(0, img_size, stripe_height):
             if white_height > 0:
-                pygame.draw.rect(temp, self.white, (0, y, img_size, white_height))
+                pygame.draw.rect(
+                    temp, self.white, (0, y, img_size, white_height)
+                )
             if black_height > 0:
                 pygame.draw.rect(
                     temp,
@@ -303,7 +314,9 @@ class TouchScreen:
 
         rx = rotated.get_width() // 2 - self.display_width // 2
         ry = rotated.get_height() // 2 - self.display_height // 2
-        crop_rect = pygame.Rect(rx, ry, self.display_width, self.display_height)
+        crop_rect = pygame.Rect(
+            rx, ry, self.display_width, self.display_height
+        )
         crop_rect.clamp_ip(rotated.get_rect())
         final = rotated.subsurface(crop_rect).copy()
         return final
@@ -682,19 +695,19 @@ if __name__ == "__main__":
     ts = TouchScreen()
     ts.loadImages(
         [
-            "plane.jpg",
-            "flower.jpg",
-            "bomb.jpg",
-            "spider.jpg",
-            "001.jpg",
-            "003.jpg",
-            "004.jpg",
-            "005.jpg",
-            "006.jpg",
-            "007.jpg",
-            "008.jpg",
-            "009.jpg",
-            "bug.png",
+            "003_plane.png",  # "plane.jpg",
+            "004_flower.png",  # "flower.jpg",
+            "015_bomb.png",  # "bomb.jpg",
+            "011_spider.jpg",  # "spider.jpg",
+            "020_stripes_rect_SW-NE.jpg",  # "001.jpg",
+            "021_stripes_rect_NW-SE.jpg",  # "003.jpg",
+            "028_stripes_circle.jpg",  # "004.jpg",
+            "002_white.png",  # "005.jpg",
+            "001_black.png",  # "006.jpg",
+            "022_stripes_rect_W-E.jpg",  # "007.jpg",
+            "013_mapple.jpg",  # "008.jpg",
+            "023_stripes_rect_N-S.jpg",  # "009.jpg",
+            "016_bug.png",  # "bug.png",
         ]
     )
     ts.setShowCalibration(True)
