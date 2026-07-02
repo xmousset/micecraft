@@ -19,7 +19,7 @@ from datetime import datetime, timedelta
 
 from micecraft.devices.gate.Gate import Gate, GateOrder
 from micecraft.devices.waterpump.WaterPump import WaterPump
-from micecraft.devices.touchscreen.TouchScreen import TouchScreen
+from micecraft.devices.touchscreen.TouchScreen_v2 import TouchScreen
 from micecraft.devices.roomSensor.RoomSensorDigest import RoomSensorDigest
 from micecraft.soft.utils.WaitForAllThreads import WaitForAllThreads
 from micecraft.soft.device_event.DeviceEvent import DeviceEvent
@@ -952,7 +952,7 @@ class Room:
             f"id_left: {left_img.get_image_id()} "
             f"id_right: {right_img.get_image_id()} "
         )
-        self.ts.setXYImage(
+        self.ts.setImage(
             f"left_image_{str(left_img)}",
             left_img.get_image_id(),
             1920 / 2 - 400,
@@ -960,7 +960,7 @@ class Room:
             0,
             1,
         )
-        self.ts.setXYImage(
+        self.ts.setImage(
             f"right_image_{str(right_img)}",
             right_img.get_image_id(),
             1920 / 2 + 400,
@@ -1503,4 +1503,3 @@ class VisualDiscriminationExperiment:
         # ----------------
         # reading time ?
         # animal weight ?
-

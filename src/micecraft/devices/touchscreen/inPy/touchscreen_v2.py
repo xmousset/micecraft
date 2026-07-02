@@ -9,6 +9,20 @@ import pygame
 import serial
 
 
+def get_images_path() -> dict[int, Path]:
+    """Get a dictionary of all touchscreen image paths with their index as key."""
+    img_folder = Path(__file__).parent
+    sfx = [".png", ".jpg", ".jpeg"]
+    list_paths = {}
+    for filepath in img_folder.iterdir():
+        if filepath.suffix not in sfx:
+            continue
+        id = int(filepath.name.split("_", 1)[0])
+        list_paths[id] = filepath
+
+    return list_paths
+
+
 class Area:
     """A rectangular area defined relative to the real screen. Can convert
     coordinates between the area and the screen.
@@ -875,10 +889,7 @@ class TouchScreen:
     # Surface creation
     # ----------------
 
-    def load_image(
-        self,
-        filepath: Path,
-    ) -> tuple[pygame.Surface, int]:
+    def load_image(self, filepath: Path) -> pygame.Surface:
         """Load an image file and create a pygame.Surface."""
         surf = pygame.image.load(filepath).convert_alpha()
         w, h = surf.get_size()
@@ -888,18 +899,14 @@ class TouchScreen:
             (255, 255, 255, ScreenImage.ALPHA),
             special_flags=pygame.BLEND_RGBA_MULT,
         )
-
-        id = int(filepath.stem.split("_", 1)[0])
-        return surf, id
+        return surf
 
     def load_all_images(self) -> None:
         """Load all images in current working directory and register them."""
-        here = Path(__file__).parent
-        sfx = [".png", ".jpg", ".jpeg"]
-        list_paths = sorted([p for p in here.iterdir() if p.suffix in sfx])
+        list_paths = get_images_path()
 
-        for path in list_paths:
-            surf, idx = self.load_image(path)
+        for idx, path in list_paths.items():
+            surf = self.load_image(path)
             self._loaded_images[idx] = surf
 
     def getImage(self, index: int) -> pygame.Surface:
@@ -959,12 +966,12 @@ class TouchScreen:
         self,
         name: str,
         index: int,
-        x: float,
-        y: float,
+        cx: float,
+        cy: float,
         r: float = 0.0,
         s: float = 1.0,
     ) -> None:
-        """Set an image by its center coordinates (x, y) in area ratio
+        """Set an image by its center coordinates (cx, cy) in area ratio
         (0.0 - 1.0)."""
 
         surf = self.getImage(index)
@@ -972,14 +979,14 @@ class TouchScreen:
             self.sendErrorFeedBack(f"setXYImage: index {index:03d} not found")
             return
         surf = pygame.transform.rotozoom(surf, r, s)
-        image = ScreenImage(surf, (x, y), name, index)
+        image = ScreenImage(surf, (cx, cy), name, index)
         self.manager.add_image(image)
 
     def setXYStripes(
         self,
         name: str,
-        x: float,
-        y: float,
+        cx: float,
+        cy: float,
         r: float = 0.0,
         s: float = 1.0,
         stripe_angle: float = 0.0,
@@ -988,16 +995,16 @@ class TouchScreen:
         color1: tuple = (255, 255, 255),
         color2: tuple = (0, 0, 0),
     ) -> pygame.Surface:
-        """Set an image by its center coordinates (x, y) in area ratio
+        """Set an image by its center coordinates (cx, cy) in area ratio
         (0.0 - 1.0).
 
         Parameters:
         -----------
         name: str
             Name of the image.
-        x: float
+        cx: float
             X coordinate of the image center (area ratio).
-        y: float
+        cy: float
             Y coordinate of the image center (area ratio).
         r: float
             Rotation angle in degrees.
@@ -1022,7 +1029,7 @@ class TouchScreen:
             color2,
         )
         surf = pygame.transform.rotozoom(surf, r, s)
-        image = ScreenImage(surf, (x, y), name, None)
+        image = ScreenImage(surf, (cx, cy), name, None)
         self.manager.add_image(image)
         return surf
 
@@ -1167,10 +1174,10 @@ class TouchScreen:
             self.manager.remove_all_images()
 
         elif "setXYImage" in c[0]:
-            # setXYImage <name> <index> <x> <y> <r> <s> <unit>
+            # setXYImage <name> <id> <cx> <cy> <r> <s> <unit>
             name = c[1]
             idx = int(c[2])
-            unit = c[7] if len(c) > 7 else "px"
+            unit = c[7]
             if len(c) > 5:
                 r = float(c[5])
             else:
@@ -1194,7 +1201,7 @@ class TouchScreen:
             self.manager.remove_image(c[1])
 
         elif "setXYStripes" in c[0]:
-            # setXYStripes <name> <x> <y> <r> <s> <stripe_angle> <thickness1> <thickness2> <color1> <color2> <unit>
+            # setXYStripes <name> <cx> <cy> <r> <s> <stripe_angle> <thickness1> <thickness2> <color1> <color2> <unit>
             name = c[1]
             r = float(c[4]) if len(c) > 4 else 0.0
             s = float(c[5]) if len(c) > 5 else 1.0
@@ -1210,7 +1217,7 @@ class TouchScreen:
                 tuple(map(int, c[10].split(","))) if len(c) > 10 else (0, 0, 0)
             )
 
-            unit = c[11] if len(c) > 11 else "px"
+            unit = c[11]
             if "px" in unit:
                 cx, cy = self.manager.px_to_area_ratio((int(c[2]), int(c[3])))
             elif "ratio" in unit:
@@ -1241,8 +1248,8 @@ class TouchScreen:
             self.manager.remove_image(c[1])
 
         elif "moveImage" in c[0]:
-            # moveImage <name> <x> <y> <unit>
-            unit = c[4] if len(c) > 4 else "px"
+            # moveImage <name> <cx> <cy> <unit>
+            unit = c[4]
             if c[1] not in self.manager.images:
                 self.send_error_feedback(f"moveImage: image {c[1]} not found")
                 return
@@ -1260,7 +1267,7 @@ class TouchScreen:
 
         elif "imageSize" in c[0]:
             # imageSize <value> <unit>
-            unit = c[2] if len(c) > 2 else "px"
+            unit = c[2]
             if "px" in unit:
                 self.setImageSize(int(c[1]))
             if "ratio" in unit:
@@ -1283,9 +1290,13 @@ class TouchScreen:
             color2 = (int(c[7]), int(c[8]), int(c[9]))
             self.setBgStripes(thickness1, thickness2, angle, color1, color2)
 
+        elif "removeBg" in c[0]:
+            # removeBg
+            self.manager.remove_background()
+
         elif "setImageOffset" in c[0]:
             # setImageOffset <dx> <dy> <unit>
-            unit = c[3] if len(c) > 3 else "px"
+            unit = c[3]
             if "px" in unit:
                 self.setImageOffset(int(c[1]), int(c[2]))
             if "ratio" in unit:
@@ -1296,7 +1307,7 @@ class TouchScreen:
 
         elif "setTouchOffset" in c[0]:
             # setTouchOffset <dx> <dy> <unit>
-            unit = c[3] if len(c) > 3 else "px"
+            unit = c[3]
             if "px" in unit:
                 self.setTouchOffset(int(c[1]), int(c[2]))
             if "ratio" in unit:

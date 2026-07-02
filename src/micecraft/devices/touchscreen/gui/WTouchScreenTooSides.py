@@ -2,12 +2,32 @@
 
 from PyQt6 import QtWidgets, QtGui
 from PyQt6.QtGui import QPaintEvent, QPainter, QFont, QPen, QColor
-from PyQt6.QtCore import QLineF, QMargins, QPointF, QRect, QSize, Qt, QTimer
+from PyQt6.QtCore import (
+    QLineF,
+    QLine,
+    QMargins,
+    QPointF,
+    QRect,
+    QSize,
+    Qt,
+    QTimer,
+)
 from PyQt6.QtWidgets import QWidget, QMenu
 
 from micecraft.soft.device_event.DeviceEvent import DeviceEvent
-from micecraft.devices.touchscreen.TouchScreen import TouchScreen
+from micecraft.devices.touchscreen.TouchScreen_v2 import TouchScreen
+from micecraft.devices.touchscreen.inPy.touchscreen_v2 import get_images_path
 from micecraft.soft.gui.VisualDeviceAlarmStatus import VisualDeviceAlarmStatus
+
+
+def get_image_name_dict() -> dict[int, str]:
+    """Return a dictionary mapping image IDs to their names, based on the
+    images available in the touchscreen's image directory."""
+    name_dict: dict[int, str] = {}
+    list_paths = get_images_path()
+    for idx, path in list_paths.items():
+        name_dict[idx] = path.stem.split("_", 1)[-1].upper()
+    return name_dict
 
 
 class WTouchPointIndicator:
@@ -120,6 +140,7 @@ class VirtualTouchScreen:
         centerY: float,
         rotation: float,
         scale: float,
+        unit: str = "px",
     ) -> None:
         name = name.replace(" ", "_")
         self.currentDisplay.append(
@@ -131,6 +152,7 @@ class VirtualTouchScreen:
                 "centerY": centerY,
                 "rotation": rotation,
                 "scale": scale,
+                "unit": unit,
             }
         )
 
@@ -182,17 +204,39 @@ class WTouchScreen(QWidget):
     WIDGET_MARGIN = 6
     """Margin in *px* between every elements."""
 
-    NAME_DICT: dict[int, str] = {
-        8: "DARK",
-        7: "LIGHT",
-        1: "FLOWER",
-        0: "PLANE",
-    }
-    IMG_DICT: dict[int, str] = {
-        8: "",
-        7: "",
-        1: "\u273f",
-        0: "\u2708",
+    NAME_DICT: dict[int, str] = get_image_name_dict()
+    IMG_DICT: dict[int, str | None] = {
+        0: None,  # ERROR
+        1: "",  # BLACK
+        2: "",  # WHITE
+        3: "\u2708",  # PLANE
+        4: "\u273f",  # FLOWER
+        5: "\u25b2",  # TRIANGLE
+        6: "\u2666",  # LOSANGE
+        7: "\u25cf",  # CIRCLE
+        8: "\u2605",  # STAR
+        9: None,  # TANGRAM
+        10: None,  # DOOR
+        11: None,  # SPIDER
+        12: None,  # APPLE
+        13: "\u273a",  # MAPPLE -> decorative
+        14: None,  # BLOOM
+        15: None,  # BOMB
+        16: "\u03b2",  # BUG -> greek beta as placeholder
+        17: "\u25ef",  # CIRCLES
+        18: "4\u25cb",  # CIRCLES4
+        19: "\u2716",  # X
+        20: "\u2571",  # STRIPES_RECT_SW-NE
+        21: "\u2572",  # STRIPES_RECT_NW-SE
+        22: "\u2550",  # STRIPES_RECT_W-E
+        23: "\u2551",  # STRIPES_RECT_N-S
+        24: "\u2550",  # STRIPES_E-W
+        25: "\u2572",  # STRIPES_NW-SE
+        26: "\u2571",  # STRIPES_SW-NE
+        27: "\u2551",  # STRIPES_N-S
+        28: "\u25c9",  # STRIPES_CIRCLE
+        29: "\u2714",  # TRUE
+        30: "\u2717",  # FALSE
     }
 
     BG_COLOR = QColor(220, 220, 220)
@@ -200,6 +244,7 @@ class WTouchScreen(QWidget):
     LIGHT_COLOR = QColor(244, 244, 244)
     DARK_COLOR = QColor(33, 33, 33)
     TOUCH_COLOR = QColor(255, 133, 194)
+    CALIBRATION_COLOR = QColor(0, 194, 0)
 
     def __init__(
         self,
@@ -227,6 +272,7 @@ class WTouchScreen(QWidget):
         self.name = "WTS"
         self.visualDeviceAlarmStatus = VisualDeviceAlarmStatus()
         self.indicators: list[WTouchPointIndicator] = []
+        self.show_calibration = False
 
     def get_element_rect(
         self,
@@ -440,7 +486,9 @@ class WTouchScreen(QWidget):
             p.fillRect(contour_rect, WTouchScreen.CONTOUR_COLOR)
 
             name = self.IMG_DICT.get(img["id"], f"UNKNOWN")
-            if WTouchScreen.NAME_DICT[img["id"]] == "LIGHT":
+            if name is None:
+                name = self.NAME_DICT.get(img["id"], f"UNKNOWN")
+            if WTouchScreen.NAME_DICT[img["id"]] == "WHITE":
                 img_clr = WTouchScreen.LIGHT_COLOR
                 pen_clr = WTouchScreen.DARK_COLOR
             else:
@@ -461,6 +509,22 @@ class WTouchScreen(QWidget):
             font.setBold(False)
             p.setFont(font)
             self.draw_text(p, self.get_element_rect("screen"), "DISABLED")
+
+        # calibration overlay
+        if self.show_calibration:
+            p.setPen(QPen(WTouchScreen.CALIBRATION_COLOR, 2))
+            contour_rect = self.get_element_rect("screen")
+            p.drawRect(contour_rect)
+            dx = contour_rect.width() // 2
+            dy = contour_rect.height() // 2
+            top_bottom = QLine(
+                contour_rect.topLeft(), contour_rect.bottomLeft()
+            ).translated(dx, 0)
+            left_right = QLine(
+                contour_rect.topLeft(), contour_rect.topRight()
+            ).translated(0, dy)
+            p.drawLine(top_bottom)
+            p.drawLine(left_right)
 
         # display touch indicators
         all_indicators = self.indicators.copy()
@@ -489,12 +553,13 @@ class WTouchScreen(QWidget):
         p.setFont(font_name)
         self.draw_text(p, self.get_element_rect("name"), self.name)
 
-        # self.visualDeviceAlarmStatus.draw(
-        #     p,
-        #     self.touchscreen,
-        #     ellipseRect=QRect(22, 60, 10, 10),
-        #     textRect=QRect(-25, 13, 100, 50),
-        # )
+        # if isinstance(self.touchscreen, TouchScreen):
+        #     self.visualDeviceAlarmStatus.draw(
+        #         p,
+        #         self.touchscreen,
+        #         ellipseRect=QRect(22, 60, 10, 10),
+        #         textRect=QRect(-25, 13, 100, 50),
+        #     )
 
         p.end()
 
@@ -514,27 +579,56 @@ class WTouchScreen(QWidget):
         menu.addMenu(display_left)
         display_right = QMenu("Display on right", menu)
         menu.addMenu(display_right)
-
         action = QtGui.QAction("Clear Images", menu)
         menu.addAction(action)
         actions[action] = (self.clear_all_images, ())
 
+        mode_menu = QMenu("Set mode", menu)
+        menu.addMenu(mode_menu)
+        normal_mode = QtGui.QAction("Normal", menu)
+        mode_menu.addAction(normal_mode)
+        actions[normal_mode] = (self.set_mode, ("normal",))
+        mouse_mode = QtGui.QAction("Mouse", menu)
+        mode_menu.addAction(mouse_mode)
+        actions[mouse_mode] = (self.set_mode, ("mouse",))
+        rat_mode = QtGui.QAction("Rat", menu)
+        mode_menu.addAction(rat_mode)
+        actions[rat_mode] = (self.set_mode, ("rat",))
+
         action = QtGui.QAction("Touch left", menu)
         menu.addAction(action)
         actions[action] = (self.touch_on, ("left",))
-
         action = QtGui.QAction("Touch right", menu)
         menu.addAction(action)
         actions[action] = (self.touch_on, ("right",))
 
-        for img_id, img_name in WTouchScreen.NAME_DICT.items():
-            action = QtGui.QAction(img_name, display_left)
-            display_left.addAction(action)
-            actions[action] = (self.display_image, ("left", img_id))
+        action = QtGui.QAction("Toggle Calibration", menu)
+        menu.addAction(action)
+        actions[action] = (self.toggle_calibration, ())
 
-            action = QtGui.QAction(img_name, display_right)
-            display_right.addAction(action)
-            actions[action] = (self.display_image, ("right", img_id))
+        other_images_left = QMenu("Other Images", display_left)
+        display_left.addMenu(other_images_left)
+        other_images_right = QMenu("Other Images", display_right)
+        display_right.addMenu(other_images_right)
+
+        main_images = ["BLACK", "WHITE", "PLANE", "FLOWER", "TRUE", "FALSE"]
+        for img_id, img_name in WTouchScreen.NAME_DICT.items():
+            if img_name in main_images:
+                action = QtGui.QAction(img_name, display_left)
+                display_left.addAction(action)
+                actions[action] = (self.display_image, ("left", img_id))
+
+                action = QtGui.QAction(img_name, display_right)
+                display_right.addAction(action)
+                actions[action] = (self.display_image, ("right", img_id))
+            else:
+                action = QtGui.QAction(img_name, other_images_left)
+                other_images_left.addAction(action)
+                actions[action] = (self.display_image, ("left", img_id))
+
+                action = QtGui.QAction(img_name, other_images_right)
+                other_images_right.addAction(action)
+                actions[action] = (self.display_image, ("right", img_id))
 
         chosen = menu.exec(self.mapToGlobal(event.pos()))
 
@@ -554,9 +648,8 @@ class WTouchScreen(QWidget):
         if side not in ["left", "right"]:
             return
 
-        cx = WTouchScreen.SCREEN_SIZE.width() / 2
-        cx += -400 if side == "left" else 400
-        cy = 750
+        cx = 0.25 if side == "left" else 0.75
+        cy = 0.5
         name = f"simulation_{side}_image_{WTouchScreen.NAME_DICT[img_id]}"
 
         img = {
@@ -567,6 +660,7 @@ class WTouchScreen(QWidget):
             "centerY": cy,
             "rotation": 0,
             "scale": 1,
+            "unit": "ratio",
         }
         self.touchscreen.setXYImage(
             img["name"],
@@ -575,6 +669,7 @@ class WTouchScreen(QWidget):
             img["centerY"],
             img["rotation"],
             img["scale"],
+            img["unit"],
         )
         self.update()
 
@@ -584,6 +679,17 @@ class WTouchScreen(QWidget):
             return
         self.touchscreen.clear()
         self.update()
+
+    def set_mode(self, mode: str):
+        """Set the mode of the touchscreen device."""
+        if not isinstance(self.touchscreen, TouchScreen):
+            return
+        if mode == "normal":
+            self.touchscreen.setNormalMode()
+        if mode == "mouse":
+            self.touchscreen.setMouseMode()
+        if mode == "rat":
+            self.touchscreen.setRatMode()
 
     def touch_on(self, side: str):
         """Simulate a touch at the given side ('left' or 'right')."""
@@ -626,24 +732,40 @@ class WTouchScreen(QWidget):
             )
         )
 
+    def toggle_calibration(self):
+        """Toggle the calibration mode of the touchscreen device."""
+        self.show_calibration = not self.show_calibration
+        if not isinstance(self.touchscreen, TouchScreen):
+            return
+        self.touchscreen.toggleCalibration()
+
 
 if __name__ == "__main__":
     import sys
 
+    print("""Testing WTouchScreen with a VirtualTouchScreen...
+        1: Test with a VirtualTouchScreen
+        2: Test with a Physical TouchScreen (requires a connected device)""")
+    mode = input("Choose test mode: ")
+
+    if mode == "1":
+        ts = VirtualTouchScreen()
+    elif mode == "2":
+        comport = input("Enter the COM port for the TouchScreen (e.g., 3): ")
+        ts = TouchScreen(f"COM{comport}")
+    else:
+        raise ValueError("Invalid test mode")
+
     app = QtWidgets.QApplication(sys.argv)
-    vts = VirtualTouchScreen("Virtual TouchScreen")
     wts = WTouchScreen(angle=0)
-    wts = WTouchScreen(angle=90)
-    wts = WTouchScreen(angle=-90)
-    wts = WTouchScreen(angle=180)
 
     fade_timer = QTimer()
     fade_timer.setInterval(50)  # ~20 fps
     fade_timer.timeout.connect(wts.update)
     fade_timer.start()
 
-    wts.bindToTouchScreen(vts)
-    wts.setName("Example TouchScreen")
+    wts.bindToTouchScreen(ts)
+    wts.setName("TouchScreen Widget")
     wts.show()
     screen = app.primaryScreen()
     if screen:
@@ -654,8 +776,8 @@ if __name__ == "__main__":
         screen.width() // 3 - wts.width() // 2,
         screen.height() // 3 - wts.height() // 2,
     )
-    wts.display_image("left", 8)
-    wts.display_image("right", 7)
+    wts.display_image("true", 29)
+    wts.display_image("false", 30)
     start_touch(560, 750)
     start_touch(1360, 750)
     start_touch(
