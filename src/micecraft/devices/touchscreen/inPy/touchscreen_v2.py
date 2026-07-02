@@ -1623,7 +1623,7 @@ class TouchScreen:
 
 
 if __name__ == "__main__":
-    TEST_MODE = True
+    TEST_MODE = False
     ts = TouchScreen(TEST_MODE)
     ts.load_all_images()
     if ts.ser is None:
