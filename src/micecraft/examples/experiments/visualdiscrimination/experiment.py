@@ -18,7 +18,7 @@ from datetime import datetime, timedelta
 
 from micecraft.devices.gate.Gate import Gate, GateOrder
 from micecraft.devices.waterpump.WaterPump import WaterPump
-from micecraft.devices.touchscreen.TouchScreen_v2 import TouchScreen2
+from micecraft.devices.touchscreen.TouchScreen2 import TouchScreen2
 from micecraft.devices.roomSensor.RoomSensorDigest import RoomSensorDigest
 from micecraft.soft.utils.WaitForAllThreads import WaitForAllThreads
 from micecraft.soft.device_event.DeviceEvent import DeviceEvent

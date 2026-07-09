@@ -27,7 +27,7 @@ from PyQt6.QtWidgets import QApplication, QMenu, QWidget
 from micecraft.soft.gui.WBlock import WBlock
 from micecraft.devices.gate.gui.WGate import WGate
 from micecraft.devices.waterpump.gui.WPump import WPump
-from micecraft.devices.touchscreen.gui.WTouchScreenTooSides import WTouchScreen
+from micecraft.devices.touchscreen.gui.WTouchScreen import WTouchScreen
 from micecraft.soft.gui.WMouse import WMouse
 from micecraft.soft.gui.VisualStorageAlarm import VisualStorageAlarm
 

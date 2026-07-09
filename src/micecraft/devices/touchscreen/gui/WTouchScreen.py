@@ -16,7 +16,7 @@ from PyQt6.QtCore import (
 from PyQt6.QtWidgets import QWidget, QMenu
 
 from micecraft.soft.device_event.DeviceEvent import DeviceEvent
-from micecraft.devices.touchscreen.TouchScreen_v2 import TouchScreen2
+from micecraft.devices.touchscreen.TouchScreen2 import TouchScreen2
 from micecraft.devices.touchscreen.inPy.ts_img_manager import TSImage
 from micecraft.soft.gui.VisualDeviceAlarmStatus import VisualDeviceAlarmStatus
 
