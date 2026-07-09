@@ -18,17 +18,12 @@ from micecraft.devices.touchscreen.inPy.GrassHopper import GrassHopper
 from micecraft.devices.touchscreen.ThreadTest import ThreadTest
 
 
-class TouchScreen(object):
+class TouchScreen2:
     """
     notes:
 
     - The TTL levels of the raspberry UART are at 3.3v
     - Win 11 compatibility: PROLIFIC PL2303GC chip
-
-    #todo: ajouter offset x calib ecran et y et multi
-
-
-
     """
 
     def __init__(self, comPort, name="TouchScreen"):
@@ -60,38 +55,9 @@ class TouchScreen(object):
 
         if not self.enabled:
             return
-
         serialString = event.description
 
-        # symbol touched id 2 at 3,1
-        if "symbol touched" in serialString:
-
-            ok = False
-
-            try:
-                data = serialString.split(" ")
-                id = int(data[3])
-                where = data[-1]
-                w = where.split(",")
-                x = int(w[0])
-                y = int(w[1])
-                xf = int(w[2])
-                yf = int(w[3])
-                ok = True
-            except:
-                self.log(
-                    f"symbol touched : error in parse data: {serialString}"
-                )
-
-            if ok:
-                self.fireEvent(
-                    DeviceEvent(
-                        "touchscreen", self, serialString, (id, x, y, xf, yf)
-                    )
-                )
-
         if "symbol xy touched" in serialString:
-            ok = False
             try:
                 data = serialString.split(" ")
                 name = data[3]
@@ -102,13 +68,6 @@ class TouchScreen(object):
                 y = int(float(w[1]))
                 xf = int(float(w[2]))
                 yf = int(float(w[3]))
-                ok = True
-            except:
-                self.log(
-                    f"symbol xy touched : error in parse data: {serialString}"
-                )
-
-            if ok:
                 self.fireEvent(
                     DeviceEvent(
                         "touchscreen",
@@ -117,25 +76,23 @@ class TouchScreen(object):
                         (name, id, x, y, xf, yf),
                     )
                 )
+            except:
+                self.log(
+                    f"symbol xy touched : error in parse data: {serialString}"
+                )
 
         if "missed" in serialString:
-            ok = False
             try:
-
-                # missed 640,497
                 data = serialString.split(" ")
                 where = data[-1]
                 w = where.split(",")
                 xf = int(w[0])
                 yf = int(w[1])
-                ok = True
-            except:
-                self.log(f"missed : error in parse data: {serialString}")
-
-            if ok:
                 self.fireEvent(
                     DeviceEvent("touchscreen", self, serialString, (xf, yf))
                 )
+            except:
+                self.log(f"missed : error in parse data: {serialString}")
 
         if "traceback" in serialString:
             self.fireEvent(DeviceEvent("touchscreen", self, serialString))
@@ -149,10 +106,15 @@ class TouchScreen(object):
 
     def clear(self):
         """Clear all images, touches and background."""
-        self.send("clear")
-        self.log("touchscreen clear")
-        self.currentDisplay.clear()
-        self.currentBg = None
+        success = self.send("clear")
+        if success:
+            self.log("touchscreen clear")
+            self.currentDisplay.clear()
+            self.currentBg = None
+        else:
+            self.log(
+                "touchscreen clear: send failed, not clearing local state"
+            )
 
     def showCalibration(self, show: bool):
         if show:
@@ -181,7 +143,7 @@ class TouchScreen(object):
         unit: str = "px",
     ):
         name = name.replace(" ", "_")
-        d = f"setXYImage"
+        d = "setXYImage"
         d += f" {name} {id} {centerX} {centerY} {rotation} {scale} {unit}"
         self.log(d)
         self.currentDisplay.append(
@@ -215,15 +177,17 @@ class TouchScreen(object):
         stripe_angle: float = 0.0,
         thickness1: int = 10,
         thickness2: int = 10,
-        color1: tuple = (255, 255, 255),
-        color2: tuple = (0, 0, 0),
+        color1: tuple[int, int, int] = (255, 255, 255),
+        color2: tuple[int, int, int] = (0, 0, 0),
         unit: str = "px",
     ):
         name = name.replace(
             " ", "_"
         )  # if the name contains space, replace it by underscore
         d = f"setXYStripes {name} {centerX} {centerY} {rotation} {scale}"
-        d += f" {stripe_angle} {thickness1} {thickness2} {color1} {color2}"
+        d += f" {stripe_angle} {thickness1} {thickness2}"
+        d += f" {color1[0]},{color1[1]},{color1[2]}"
+        d += f" {color2[0]},{color2[1]},{color2[2]}"
         d += f" {unit}"
         self.log(d)
         self.currentDisplay.append(
@@ -310,15 +274,15 @@ class TouchScreen(object):
 
     def setMouseMode(self):
         # the ir screen is rotated to match the screen viewport
-        self.send(f"mouseMode")
+        self.send("mouseMode")
 
     def setRatMode(self):
         # the ir screen is rotated to match the screen viewport
-        self.send(f"ratMode")
+        self.send("ratMode")
 
     def setNormalMode(self):
         # no screen rotation
-        self.send(f"normalMode")
+        self.send("normalMode")
 
     def setMode(
         self,
@@ -347,10 +311,16 @@ class TouchScreen(object):
     # ================ UTILS ================
 
     def log(self, message):
-        logging.info(f"[TouchScreen][{self.comPort}][{self.name}]{message}")
+        logging.info(f"[TouchScreen][{self.comPort}][{self.name}] {message}")
 
     def send(self, message):
-        self.comManager.send(message)
+        """Send a message to the device and return True on success, False on failure."""
+        try:
+            return self.comManager.send(message)
+        except Exception:
+            # ensure we don't raise from send; log and return False
+            self.log(f"send: exception while sending '{message}'")
+            return False
 
     def fireEvent(self, deviceEvent: DeviceEvent):
         for listener in self.deviceListenerList:
@@ -379,121 +349,138 @@ if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
     logging.getLogger().addHandler(logging.StreamHandler(sys.stdout))
 
-    def listener(event):
-        print(event)
-        if "symbol xy touched" in event.description:
-            name = event.data[0]
-            print(f"symbol xy touched: name: {name}")
+    # def listener(event):
+    #     print(event)
+    #     if "symbol xy touched" in event.description:
+    #         name = event.data[0]
+    #         print(f"symbol xy touched: name: {name}")
 
     print("Starting touchScreen test.")
-    ts = TouchScreen(COM_PORT)
-    ts.addDeviceListener(listener)
+    ts = TouchScreen2(COM_PORT)
+    # ts.addDeviceListener(listener)
     ts.setNormalMode()
     ts.clear()
-    ts.setXYImage("TRUE", 19, 0.25, 0.5, unit="ratio")
-    ts.setXYImage("FALSE", 20, 0.75, 0.5, unit="ratio")
+    ts.setXYImage("TRUE", 29, 0.25, 0.5, unit="ratio")
+    ts.setXYImage("FALSE", 30, 0.75, 0.5, unit="ratio")
+    ts.setMouseMode()
+
+    print("coordinates: top left corner is 0,0")
+    print("a: send ping")
+    print("x: quit")
+    print("0-9: true image on target position")
+    print("t: thread test")
+    print("z: force a crash on the device")
+    print("c: toggle calibration")
+    print("i <id>: add one image")
+    print("r: rat mode")
+    print("m: mouse mode")
+    print("n: normal mode")
+    print("g: grass hopper demo")
+    print("o: clear")
+    print("s <angle>: add one stripe image")
+    print("b: add random background stripes")
 
     while True:
-        print("coordinates: top left corner is 0,0")
-        print("a: send ping")
-        print("x: quit")
-        print("0-9: true image on target position")
-        print("t: thread test")
-        print("z: force a crash on the device")
-        print("c: toggle calibration")
-        print("i <id>: add one image")
-        print("r: rat mode")
-        print("m: mouse mode")
-        print("n: normal mode")
-        print("g: grass hopper demo")
-        print("o: clear")
-        print("s <angle>: add one stripe image")
-        print("b: add random background stripes")
-        command = input("command: ")
+        command = input("command: ").strip()
 
-        parts = command.strip().split()
-        if not parts:
+        # ignore empty input
+        if not command:
             continue
-        cmd = parts[0]
-        args = parts[1:]
-        if cmd.isnumeric():
-            args = [cmd]
-            cmd = "0"
 
-        match cmd:
-            case "a":
-                ts.ping()
-            case "x":
-                ts.shutdown()
-                break
-            case "0":
-                ts.clear()
-                if args[0] == "0":
-                    ts.setXYImage("TRUE", 19, 0.25, 0.5, unit="ratio")
-                    ts.setXYImage("FALSE", 20, 0.75, 0.5, unit="ratio")
-                else:
-                    xs = [0.25, 0.5, 0.75]
-                    ys = [0.25, 0.5, 0.75]
-                    pos = int(args[0]) - 1
-                    x = xs[pos % 3]
-                    y = ys[pos // 3]
-                    ts.setXYImage("TRUE", 19, x, y, unit="ratio")
-            case "t":
-                ThreadTest(ts)
-            case "z":
-                ts.crash()
-            case "c":
-                ts.toggleCalibration()
-            case "i":
-                if args:
-                    try:
-                        idx = int(args[0])
-                    except ValueError:
-                        idx = randint(0, 28)
-                else:
+        # split into tokens and normalize the command letter to lowercase
+        parts = command.split()
+
+        # support inputs like 'i12' (no space) by falling back to first char
+        if len(parts) == 1 and len(command) > 1 and not command[1].isspace():
+            letter = command[0].lower()
+            args = [command[1:]]
+        else:
+            letter = parts[0].lower()
+            args = parts[1:] if len(parts) > 1 else []
+
+        # numeric shorthand: '1'..'9' map to letter '0' with args
+        if letter.isnumeric():
+            args = [letter]
+            letter = "0"
+
+        # debug output to help diagnose parsing issues
+        print(f"[DEBUG] command='{command}' -> letter='{letter}', args={args}")
+
+        if letter.isnumeric():
+            args = [letter]
+            letter = "0"
+
+        if letter == "a":
+            ts.ping()
+        if letter == "x":
+            ts.shutdown()
+            break
+        if letter == "0":
+            ts.clear()
+            if args[0] == "0":
+                ts.setXYImage("TRUE", 29, 0.25, 0.5, unit="ratio")
+                ts.setXYImage("FALSE", 30, 0.75, 0.5, unit="ratio")
+            else:
+                xs = [0.25, 0.5, 0.75]
+                ys = [0.25, 0.5, 0.75]
+                pos = int(args[0]) - 1
+                x = xs[pos % 3]
+                y = ys[pos // 3]
+                ts.setXYImage("TRUE", 29, x, y, unit="ratio")
+        if letter == "t":
+            ThreadTest(ts)
+        if letter == "z":
+            ts.crash()
+        if letter == "c":
+            ts.toggleCalibration()
+        if letter == "i":
+            if args:
+                try:
+                    idx = int(args[0])
+                except ValueError:
                     idx = randint(0, 28)
-                ts.removeXYImage("random_image")
-                ts.setXYImage(
-                    "random_image",
-                    idx,
-                    random.random(),
-                    random.random(),
-                    random.random() * 360,
-                    random.random() + 0.5,
-                    "ratio",
-                )
-            case "r":
-                ts.setRatMode()
-            case "m":
-                ts.setMouseMode()
-            case "n":
-                ts.setNormalMode()
-            case "g":
-                GrassHopper(ts)
-            case "o":
-                ts.clear()
-            case "s":
-                if args:
-                    try:
-                        angle = float(args[0])
-                    except ValueError:
-                        angle = randint(-90, 90)
-                else:
+            else:
+                idx = randint(0, 28)
+            ts.removeXYImage("random_image")
+            ts.setXYImage(
+                "random_image",
+                idx,
+                random.random(),
+                random.random(),
+                random.random() * 360,
+                random.random() + 0.5,
+                "ratio",
+            )
+        if letter == "r":
+            ts.setRatMode()
+        if letter == "m":
+            ts.setMouseMode()
+        if letter == "n":
+            ts.setNormalMode()
+        if letter == "g":
+            GrassHopper(ts)
+        if letter == "o":
+            ts.clear()
+        if letter == "s":
+            if args:
+                try:
+                    angle = float(args[0])
+                except ValueError:
                     angle = randint(-90, 90)
-                ts.removeXYStripes("random_stripes")
-                ts.setXYStripes(
-                    "random_stripes", random.random(), random.random(), angle
-                )
-            case "b":
-                ts.setBgStripes(
-                    thickness1=randint(5, 20),
-                    thickness2=randint(5, 20),
-                    angle=randint(-90, 90),
-                    color1=(randint(0, 255), randint(0, 255), randint(0, 255)),
-                    color2=(randint(0, 255), randint(0, 255), randint(0, 255)),
-                )
-            case _:
-                continue
+            else:
+                angle = randint(-90, 90)
+            ts.removeXYStripes("random_stripes")
+            ts.setXYStripes(
+                "random_stripes", random.random(), random.random(), angle
+            )
+        if letter == "b":
+            ts.setBgStripes(
+                thickness1=randint(5, 20),
+                thickness2=randint(5, 20),
+                angle=randint(-90, 90),
+                color1=(randint(0, 255), randint(0, 255), randint(0, 255)),
+                color2=(randint(0, 255), randint(0, 255), randint(0, 255)),
+            )
 
     # exit loop cleanly
     sys.exit(0)

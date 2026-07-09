@@ -8,19 +8,7 @@ from pathlib import Path
 import pygame
 import serial
 
-
-def get_images_path() -> dict[int, Path]:
-    """Get a dictionary of all touchscreen image paths with their index as key."""
-    img_folder = Path(__file__).parent
-    sfx = [".png", ".jpg", ".jpeg"]
-    list_paths = {}
-    for filepath in img_folder.iterdir():
-        if filepath.suffix not in sfx:
-            continue
-        id = int(filepath.name.split("_", 1)[0])
-        list_paths[id] = filepath
-
-    return list_paths
+from micecraft.devices.touchscreen.inPy.ts_img_manager import TSImage
 
 
 class Area:
@@ -265,6 +253,10 @@ class ScreenDisplayManager:
     All image positions are expressed as normalized coordinates (0.0 - 1.0)
     *within the active area*.  The active area itself is expressed as
     normalized coordinates relative to the full display.
+
+    Pixel unit only concern the screen display (full size). All other
+    coordinates are expressed in normalized coordinates (0.0 - 1.0) relative to
+    the corresponding area (display, screen, detector).
     """
 
     def __init__(self):
@@ -286,8 +278,8 @@ class ScreenDisplayManager:
         self.detector_area = Area()
         """area corresponding to touch detector"""
 
-        self.images: dict[str, ScreenImage] = {}
-        """all displayed images, keyed by name"""
+        self.images: list[ScreenImage] = []
+        """all displayed images (first in first drawn)"""
 
         self.touches: dict[Any, ScreenTouch] = {}
         """current touch positions, keyed by touch ID"""
@@ -337,7 +329,7 @@ class ScreenDisplayManager:
 
     def clear(self) -> None:
         """Clear all images and touches from the display."""
-        self.screen.fill((0, 0, 0))  # clear the display to black
+        self.screen.fill((0, 0, 0))
         self.remove_all_images()
         self.remove_all_touches()
         self.background = None
@@ -371,11 +363,10 @@ class ScreenDisplayManager:
             y:  Vertical center in pixels within the active area.
             name:    Unique slot identifier.  Overwrites any existing entry.
         """
-        self.images[image.name] = image
+        self.images.append(image)
 
     def remove_image(self, name: str) -> None:
-        if name in self.images:
-            self.images.pop(name)
+        self.images = [img for img in self.images if img.name != name]
 
     def remove_all_images(self) -> None:
         self.images.clear()
@@ -406,7 +397,7 @@ class ScreenDisplayManager:
         """Return the list of images whose bounding rect contains specified
         Screentouch."""
         images_touched = []
-        for img in self.images.values():
+        for img in self.images:
             sw, sh = self.px_to_area_ratio(img.surface.get_size())
             x_min = img.center[0] - sw / 2
             x_max = img.center[0] + sw / 2
@@ -737,7 +728,7 @@ class ScreenDisplayManager:
             area.blit(self.background, (0, 0))
 
         # blit all images
-        for img in self.images.values():
+        for img in self.images:
             s = img.surface
             cx, cy = self.area_ratio_to_px(img.center)
             x = cx + ScreenImage.OFFSET[0] - s.get_width() // 2
@@ -903,7 +894,7 @@ class TouchScreen:
 
     def load_all_images(self) -> None:
         """Load all images in current working directory and register them."""
-        list_paths = get_images_path()
+        list_paths = TSImage.get_images_path()
 
         for idx, path in list_paths.items():
             surf = self.load_image(path)
@@ -915,7 +906,7 @@ class TouchScreen:
         try:
             image = self._loaded_images[index]
         except:
-            self.sendErrorFeedBack(f"getImage: Image key error:{index}")
+            self.send_error_feedback(f"getImage: Image key error:{index}")
             image = self._loaded_images[0]  # error image
         return image
 
@@ -976,7 +967,9 @@ class TouchScreen:
 
         surf = self.getImage(index)
         if surf is None:
-            self.sendErrorFeedBack(f"setXYImage: index {index:03d} not found")
+            self.send_error_feedback(
+                f"setXYImage: index {index:03d} not found"
+            )
             return
         surf = pygame.transform.rotozoom(surf, r, s)
         image = ScreenImage(surf, (cx, cy), name, index)
@@ -1107,7 +1100,7 @@ class TouchScreen:
             return
         self.ser.write((message + "\n").encode("utf-8"))
 
-    def sendErrorFeedBack(self, error):
+    def send_error_feedback(self, error):
         # check error to avoid repeating the same one all the time
         if self.ser is None:
             print(f"[no serial] Touchscreen - error - traceback: {error}")
@@ -1124,9 +1117,9 @@ class TouchScreen:
 
         data_in = self.ser.readline()
         try:
-            data_in = data_in.decode("utf-8")
+            data_in = data_in.decode()
         except Exception:
-            self.send_error_feedback("Can't uf8-decode command")
+            self.send_error_feedback("Can't utf-8-decode command")
             return None
 
         self.input_buffer += data_in
@@ -1136,31 +1129,35 @@ class TouchScreen:
 
         line, _, self.input_buffer = self.input_buffer.partition("\n")
 
-        return line.strip() or None
+        return line.strip()
 
     def execute_command(self, command: str | None):
         """Parse a single serial command and act on it."""
         if command is None:
-            return
+            return False
+        print(f"process command: {command}")
 
-        c = command.strip().split(" ")
+        c = command.split(" ")
 
         if not c:
-            return
+            return False
 
         if "hello" in c[0]:
             # hello
-            self.send("Touchscreen - driver v3.0")
+            self.send("Touchscreen - driver v2.2")
+            return True
 
-        elif "ping" in c[0]:
+        if "ping" in c[0]:
             # ping
             self.send("pong")
+            return True
 
-        elif "clear" in c[0]:
+        if "clear" in c[0]:
             # clear
             self.manager.clear()
+            return True
 
-        elif "calibration" in c[0]:
+        if "calibration" in c[0]:
             # calibration <show|hide|toggle>
             if "show" in command:
                 self.manager.set_show_calibration(True)
@@ -1168,12 +1165,14 @@ class TouchScreen:
                 self.manager.set_show_calibration(False)
             else:
                 self.manager.toggle_calibration()
+            return True
 
-        elif "removeAllImages" in c[0]:
+        if "removeAllImages" in c[0]:
             # removeAllImages
             self.manager.remove_all_images()
+            return True
 
-        elif "setXYImage" in c[0]:
+        if "setXYImage" in c[0]:
             # setXYImage <name> <id> <cx> <cy> <r> <s> <unit>
             name = c[1]
             idx = int(c[2])
@@ -1193,29 +1192,25 @@ class TouchScreen:
                 cx, cy = float(c[3]), float(c[4])
             else:
                 self.send_error_feedback(f"setXYImage: unknown unit {unit}")
-                return
+                return True
             self.setXYImage(name, idx, cx, cy, r, s)
+            return True
 
-        elif "removeXYImage" in c[0]:
+        if "removeXYImage" in c[0]:
             # removeXYImage <name>
             self.manager.remove_image(c[1])
+            return True
 
-        elif "setXYStripes" in c[0]:
+        if "setXYStripes" in c[0]:
             # setXYStripes <name> <cx> <cy> <r> <s> <stripe_angle> <thickness1> <thickness2> <color1> <color2> <unit>
             name = c[1]
-            r = float(c[4]) if len(c) > 4 else 0.0
-            s = float(c[5]) if len(c) > 5 else 1.0
-            stripe_angle = float(c[6]) if len(c) > 6 else 0.0
-            thickness1 = int(c[7]) if len(c) > 7 else 10
-            thickness2 = int(c[8]) if len(c) > 8 else 10
-            color1 = (
-                tuple(map(int, c[9].split(",")))
-                if len(c) > 9
-                else (255, 255, 255)
-            )
-            color2 = (
-                tuple(map(int, c[10].split(","))) if len(c) > 10 else (0, 0, 0)
-            )
+            r = float(c[4])
+            s = float(c[5])
+            stripe_angle = float(c[6])
+            thickness1 = int(c[7])
+            thickness2 = int(c[8])
+            color1 = tuple(map(int, c[9].split(",")))
+            color2 = tuple(map(int, c[10].split(",")))
 
             unit = c[11]
             if "px" in unit:
@@ -1223,8 +1218,8 @@ class TouchScreen:
             elif "ratio" in unit:
                 cx, cy = float(c[2]), float(c[3])
             else:
-                self.send_error_feedback(f"setXYImage: unknown unit {unit}")
-                return
+                self.send_error_feedback(f"setXYStripes: unknown unit {unit}")
+                return True
 
             self.setXYStripes(
                 name,
@@ -1238,34 +1233,44 @@ class TouchScreen:
                 color1,
                 color2,
             )
+            return True
 
-        elif "removeXYStripes" in c[0]:
+        if "removeXYStripes" in c[0]:
             # removeXYStripes <name>
             self.manager.remove_image(c[1])
+            return True
 
-        elif "removeImage" in c[0]:
+        if "removeImage" in c[0]:
             # removeImage <name>
             self.manager.remove_image(c[1])
+            return True
 
-        elif "moveImage" in c[0]:
+        if "moveImage" in c[0]:
             # moveImage <name> <cx> <cy> <unit>
             unit = c[4]
-            if c[1] not in self.manager.images:
+            image = None
+            for img in self.manager.images:
+                if img.name == c[1]:
+                    image = img
+                    break
+            if image is None:
                 self.send_error_feedback(f"moveImage: image {c[1]} not found")
-                return
+                return True
 
             if "px" in unit:
-                self.manager.images[c[1]].center = (
-                    self.manager.px_to_area_ratio((int(c[2]), int(c[3])))
+                image.center = self.manager.px_to_area_ratio(
+                    (int(c[2]), int(c[3]))
                 )
             if "ratio" in unit:
-                self.manager.images[c[1]].center = (float(c[2]), float(c[3]))
+                image.center = (float(c[2]), float(c[3]))
+            return True
 
-        elif "transparency" in c[0]:
+        if "transparency" in c[0]:
             # transparency <value>
             ScreenImage.ALPHA = int(c[1])
+            return True
 
-        elif "imageSize" in c[0]:
+        if "imageSize" in c[0]:
             # imageSize <value> <unit>
             unit = c[2]
             if "px" in unit:
@@ -1273,15 +1278,17 @@ class TouchScreen:
             if "ratio" in unit:
                 dim = max(self.manager.display_area.get_size_px())
                 self.setImageSize(int(float(c[1]) * dim))
+            return True
 
-        elif "setBgColor" in c[0]:
+        if "setBgColor" in c[0]:
             # setBgColor <r> <g> <b>
             r = int(c[1])
             g = int(c[2])
             b = int(c[3])
             self.setBgColor((r, g, b))
+            return True
 
-        elif "setBgStripes" in c[0]:
+        if "setBgStripes" in c[0]:
             # setBgStripes <thickness1> <thickness2> <angle> <r1> <g1> <b1> <r2> <g2> <b2>
             thickness1 = int(c[1])
             thickness2 = int(c[2])
@@ -1289,12 +1296,14 @@ class TouchScreen:
             color1 = (int(c[4]), int(c[5]), int(c[6]))
             color2 = (int(c[7]), int(c[8]), int(c[9]))
             self.setBgStripes(thickness1, thickness2, angle, color1, color2)
+            return True
 
-        elif "removeBg" in c[0]:
+        if "removeBg" in c[0]:
             # removeBg
             self.manager.remove_background()
+            return True
 
-        elif "setImageOffset" in c[0]:
+        if "setImageOffset" in c[0]:
             # setImageOffset <dx> <dy> <unit>
             unit = c[3]
             if "px" in unit:
@@ -1304,8 +1313,9 @@ class TouchScreen:
                     (float(c[1]), float(c[2]))
                 )
                 self.setImageOffset(dx, dy)
+            return True
 
-        elif "setTouchOffset" in c[0]:
+        if "setTouchOffset" in c[0]:
             # setTouchOffset <dx> <dy> <unit>
             unit = c[3]
             if "px" in unit:
@@ -1315,20 +1325,24 @@ class TouchScreen:
                     (float(c[1]), float(c[2]))
                 )
                 self.setTouchOffset(dx, dy)
+            return True
 
-        elif "mouseMode" in c[0]:
+        if "mouseMode" in c[0]:
             # mouseMode
             self.manager.set_mouse_mode()
+            return True
 
-        elif "ratMode" in c[0]:
+        if "ratMode" in c[0]:
             # ratMode
             self.manager.set_rat_mode()
+            return True
 
-        elif "normalMode" in c[0]:
+        if "normalMode" in c[0]:
             # normalMode
             self.manager.set_normal_mode()
+            return True
 
-        elif "setMode" in c[0]:
+        if "setMode" in c[0]:
             # setMode <display_width_ratio> <display_height_ratio>
             # <display_center_x_ratio> <display_center_y_ratio>
             # <display_rotation_angle> <display_invert_x> <display_invert_y>
@@ -1377,18 +1391,12 @@ class TouchScreen:
                 detector_rotation=det_rot,
                 detector_invert_axis=(det_inv_x, det_inv_y),
             )
+            return True
 
-        elif "crash" in c[0]:
+        if "crash" in c[0]:
             raise Exception("Crash asked by user")
 
-        return command
-
-    def send_error_feedback(self, error: str) -> None:
-        # check error to avoid repeating the same one all the time
-        if error == self.last_error:
-            return
-        self.send(f"Touchscreen - error - traceback: {error}")
-        self.last_error = error
+        return False
 
     # Processing
     # ----------------
