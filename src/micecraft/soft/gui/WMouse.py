@@ -6,8 +6,8 @@ Created on 14 mars 2023
 
 from PyQt6.QtGui import QPaintEvent, QPainter, QFont, QPen, QColor
 from PyQt6.QtCore import QRect, Qt
-from PyQt6 import *
-from PyQt6.QtWidgets import QWidget, QMenu
+from PyQt6 import QtCore, QtGui, QtWidgets
+
 
 class WMouse(QtWidgets.QWidget):
 
