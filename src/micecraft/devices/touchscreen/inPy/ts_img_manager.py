@@ -3,8 +3,8 @@ from pathlib import Path
 
 UNICODE_REPRESENTATION: dict[int, str | None] = {
     0: None,  # ERROR
-    1: "",  # BLACK
-    2: "",  # WHITE
+    1: "",  # DARK
+    2: "",  # LIGHT
     3: "\u2708",  # PLANE
     4: "\u273f",  # FLOWER
     5: "\u25b2",  # TRIANGLE
@@ -41,8 +41,8 @@ class TSImage(Enum):
     touchscreen."""
 
     ERROR = 0
-    LIGHT = 1
-    DARK = 2
+    DARK = 1
+    LIGHT = 2
     PLANE = 3
     FLOWER = 4
     TRIANGLE = 5
@@ -100,22 +100,22 @@ class TSImage(Enum):
         return txt
 
     @staticmethod
-    def get_unicode_from_id(id: int):
-        """Get the unicode representation of the TSImage or its name if no
-        unicode is available or "UNKNOWN" if the id is invalid."""
-        txt = UNICODE_REPRESENTATION.get(id)
-        if txt is None:
-            return "UNKNOWN"
-        return txt
-
-    @staticmethod
-    def get_name_from_id(id: int):
+    def get_name_from_id(id: int) -> str:
         """Get the name of the TSImage from its id or "UNKNOWN" if the id is
         invalid."""
         try:
             return TSImage(id).name
         except ValueError:
             return "UNKNOWN"
+
+    @staticmethod
+    def get_unicode_from_id(id: int) -> str:
+        """Get the unicode representation of the TSImage or its name if no
+        unicode is available or "UNKNOWN" if the id is invalid."""
+        txt = UNICODE_REPRESENTATION.get(id)
+        if txt is None:
+            txt = TSImage.get_name_from_id(id)
+        return txt
 
     def get_opposite(self):
         """Get the opposite TSImage."""

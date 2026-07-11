@@ -62,6 +62,9 @@ class TouchScreen2:
                 data = serialString.split(" ")
                 name = data[3]
                 id = int(data[5])
+                ratio = data[8].split(",")
+                xr = float(ratio[0])
+                yr = float(ratio[1])
                 where = data[-1]
                 w = where.split(",")
                 x = int(float(w[0]))
@@ -73,7 +76,7 @@ class TouchScreen2:
                         "touchscreen",
                         self,
                         serialString,
-                        (name, id, x, y, xf, yf),
+                        (name, id, x, y, xf, yf, xr, yr),
                     )
                 )
             except:
@@ -84,12 +87,17 @@ class TouchScreen2:
         if "missed" in serialString:
             try:
                 data = serialString.split(" ")
+                ratio = data[2].split(",")
+                xr = float(ratio[0])
+                yr = float(ratio[1])
                 where = data[-1]
                 w = where.split(",")
                 xf = int(w[0])
                 yf = int(w[1])
                 self.fireEvent(
-                    DeviceEvent("touchscreen", self, serialString, (xf, yf))
+                    DeviceEvent(
+                        "touchscreen", self, serialString, (xf, yf, xr, yr)
+                    )
                 )
             except:
                 self.log(f"missed : error in parse data: {serialString}")
@@ -313,7 +321,7 @@ class TouchScreen2:
     def log(self, message):
         logging.info(f"[TouchScreen][{self.comPort}][{self.name}] {message}")
 
-    def send(self, message):
+    def send(self, message: str) -> bool:
         """Send a message to the device and return True on success, False on failure."""
         try:
             return self.comManager.send(message)
@@ -349,24 +357,25 @@ if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
     logging.getLogger().addHandler(logging.StreamHandler(sys.stdout))
 
-    # def listener(event):
-    #     print(event)
-    #     if "symbol xy touched" in event.description:
-    #         name = event.data[0]
-    #         print(f"symbol xy touched: name: {name}")
+    def listener(event):
+        print(event)
+        if "symbol xy touched" in event.description:
+            name = event.data[0]
+            print(f"symbol xy touched: name: {name}")
 
     print("Starting touchScreen test.")
     ts = TouchScreen2(COM_PORT)
-    # ts.addDeviceListener(listener)
+    ts.addDeviceListener(listener)
     ts.setNormalMode()
     ts.clear()
     ts.setXYImage("TRUE", 29, 0.25, 0.5, unit="ratio")
     ts.setXYImage("FALSE", 30, 0.75, 0.5, unit="ratio")
     ts.setMouseMode()
+    # ts.setRatMode()
 
     print("coordinates: top left corner is 0,0")
     print("a: send ping")
-    print("x: quit")
+    print("q: quit")
     print("0-9: true image on target position")
     print("t: thread test")
     print("z: force a crash on the device")
@@ -390,32 +399,20 @@ if __name__ == "__main__":
         # split into tokens and normalize the command letter to lowercase
         parts = command.split()
 
-        # support inputs like 'i12' (no space) by falling back to first char
-        if len(parts) == 1 and len(command) > 1 and not command[1].isspace():
-            letter = command[0].lower()
-            args = [command[1:]]
-        else:
-            letter = parts[0].lower()
-            args = parts[1:] if len(parts) > 1 else []
+        letter = parts[0].lower()
+        args = parts[1:] if len(parts) > 1 else []
+
+        if letter == "q":
+            ts.shutdown()
+            break
 
         # numeric shorthand: '1'..'9' map to letter '0' with args
         if letter.isnumeric():
             args = [letter]
             letter = "0"
 
-        # debug output to help diagnose parsing issues
-        print(f"[DEBUG] command='{command}' -> letter='{letter}', args={args}")
-
-        if letter.isnumeric():
-            args = [letter]
-            letter = "0"
-
-        if letter == "a":
-            ts.ping()
-        if letter == "x":
-            ts.shutdown()
-            break
         if letter == "0":
+            print(letter, args)
             ts.clear()
             if args[0] == "0":
                 ts.setXYImage("TRUE", 29, 0.25, 0.5, unit="ratio")
@@ -427,12 +424,19 @@ if __name__ == "__main__":
                 x = xs[pos % 3]
                 y = ys[pos // 3]
                 ts.setXYImage("TRUE", 29, x, y, unit="ratio")
+
+        if letter == "a":
+            ts.ping()
+
         if letter == "t":
             ThreadTest(ts)
+
         if letter == "z":
             ts.crash()
+
         if letter == "c":
             ts.toggleCalibration()
+
         if letter == "i":
             if args:
                 try:
@@ -451,16 +455,22 @@ if __name__ == "__main__":
                 random.random() + 0.5,
                 "ratio",
             )
+
         if letter == "r":
             ts.setRatMode()
+
         if letter == "m":
             ts.setMouseMode()
+
         if letter == "n":
             ts.setNormalMode()
+
         if letter == "g":
             GrassHopper(ts)
+
         if letter == "o":
             ts.clear()
+
         if letter == "s":
             if args:
                 try:
@@ -471,8 +481,14 @@ if __name__ == "__main__":
                 angle = randint(-90, 90)
             ts.removeXYStripes("random_stripes")
             ts.setXYStripes(
-                "random_stripes", random.random(), random.random(), angle
+                name="random_stripes",
+                centerX=round(random.random(), 2),
+                centerY=round(random.random(), 2),
+                stripe_angle=angle,
+                thickness1=randint(1, 30),
+                unit="ratio",
             )
+
         if letter == "b":
             ts.setBgStripes(
                 thickness1=randint(5, 20),

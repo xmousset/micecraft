@@ -2,7 +2,8 @@
 import math
 
 from PyQt6 import QtWidgets, QtGui
-from PyQt6.QtGui import QPaintEvent, QPainter, QFont, QPen, QColor
+from PyQt6.QtWidgets import QApplication, QMenu, QWidget
+from PyQt6.QtGui import QPaintEvent, QPainter, QFont, QPen, QColor, QCloseEvent
 from PyQt6.QtCore import (
     QLineF,
     QLine,
@@ -13,7 +14,6 @@ from PyQt6.QtCore import (
     Qt,
     QTimer,
 )
-from PyQt6.QtWidgets import QWidget, QMenu
 
 from micecraft.soft.device_event.DeviceEvent import DeviceEvent
 from micecraft.devices.touchscreen.TouchScreen2 import TouchScreen2
@@ -27,6 +27,7 @@ class WScreenTouch:
     def __init__(
         self,
         touch_point: QPointF,
+        on_symbol: bool,
         update_callback: Callable,
         visible_time: int = 3,
         fading_time: int = 2,
@@ -49,7 +50,8 @@ class WScreenTouch:
             point.
         """
         self.touch_point: QPointF = touch_point
-        """Position (x, y) on the screen."""
+        """Position (x, y) on the widget displayed area."""
+        self.on_symbol: bool = on_symbol
         self.show: bool = True
         self.size: int = size
         self.visible_time: int = visible_time * 1_000
@@ -113,16 +115,16 @@ class WTouchScreen(QWidget):
 
     SCREEN_SIZE = QSize(1920, 1080)
     """(width, height) in *px* for horizontal orientation."""
-    WIDGET_SIZE = QSize(150, 60)
+    WIDGET_SIZE = QSize(120, 90)
     """(width, height) in *px* for horizontal orientation."""
-    WIDGET_TEXT_HEIGHT = 12
+    WIDGET_TEXT_HEIGHT = 18
     """Margin in *px* between the widget border and the text."""
     WIDGET_MARGIN = 6
     """Margin in *px* between every elements."""
     IMAGE_RECT = QRect(-16, -16, 33, 33)
     """(x, y, width, height) in *px* for the image rect centered on (0,0)."""
 
-    BG_COLOR = QColor(33, 33, 33)
+    BG_COLOR = QColor(220, 220, 220)
     CONTOUR_COLOR = QColor(94, 94, 94)
     LIGHT_COLOR = QColor(244, 244, 244)
     DARK_COLOR = QColor(33, 33, 33)
@@ -168,7 +170,7 @@ class WTouchScreen(QWidget):
             - "widget"  : the entire widget
             - "inner"   : the inner area of the widget (without margins)
             - "name"    : the area displaying the widget's name
-            - "screen"  : the whole display area (left + margins + right)
+            - "screen"  : the whole display area
         """
         text_h = WTouchScreen.WIDGET_TEXT_HEIGHT
         margin = WTouchScreen.WIDGET_MARGIN
@@ -218,24 +220,7 @@ class WTouchScreen(QWidget):
         point indicator, based on its position and the widget's block wall
         orientation."""
 
-        screen = WTouchScreen.SCREEN_SIZE
-        wscreen = self.get_element_rect("screen")
-
-        cross_rect = QRect(
-            int(
-                indicator.touch_point.x() / screen.width() * wscreen.width()
-                + wscreen.x()
-                - indicator.size
-            ),
-            int(
-                indicator.touch_point.y() / screen.height() * wscreen.height()
-                + wscreen.y()
-                - indicator.size
-            ),
-            2 * indicator.size,
-            2 * indicator.size,
-        )
-
+        cross_rect = indicator.get_rect()
         cross_center = cross_rect.center().toPointF()
 
         hline = QLineF(-indicator.size, 0, indicator.size, 0)
@@ -272,21 +257,33 @@ class WTouchScreen(QWidget):
     # ================ Device Listener ================
 
     def widget_touchscreen_listener(self, event: DeviceEvent):
+        if self.touchscreen is None:
+            return
+
         desc = event.description
         point = None
+        on_symbol = False
 
         if "symbol xy touched" in desc:
-            # data = (name, id, x, y, xf, yf)
-            _, _, _, _, xf, yf = event.data  # type: ignore
-            point = QPointF(xf, yf)
+            # data = (name, id, x, y, xf, yf, xr, yr)
+            xr = event.data[6]  # type: ignore
+            yr = event.data[7]  # type: ignore
+            point = QPointF(xr, yr)
+            on_symbol = True
 
         if "missed" in desc:
-            # data = (xf, yf)
-            xf, yf = event.data  # type: ignore
-            point = QPointF(xf, yf)
+            # data = (xf, yf, xr, yr)
+            xr = event.data[2]  # type: ignore
+            yr = event.data[3]  # type: ignore
+            point = QPointF(xr, yr)
 
         if point is not None:
-            indicator = WScreenTouch(point, self.update)
+            wscreen = self.get_element_rect("screen")
+            wpoint = QPointF(
+                point.x() * wscreen.width() + wscreen.x(),
+                point.y() * wscreen.height() + wscreen.y(),
+            )
+            indicator = WScreenTouch(wpoint, on_symbol, self.update)
             if indicator in self.indicators:
                 self.indicators.remove(indicator)
             self.indicators.append(indicator)
@@ -301,10 +298,48 @@ class WTouchScreen(QWidget):
         rect: QRect,
         txt: str,
     ):
-        """Draw text in the given rectangle, rotated if vertical orientation."""
-
+        """Draw text in the given rectangle (size is adapted and rotated if
+        vertical orientation)."""
         p.save()
 
+        cur_font: QFont = p.font()
+        family = cur_font.family() or ""
+        bold = cur_font.bold()
+
+        # start from the painter's point size if available, otherwise use 16
+        try:
+            max_size = int(cur_font.pointSize())
+        except Exception:
+            max_size = 16
+
+        if max_size <= 0:
+            max_size = 16
+
+        min_size = 6
+        pad = 4
+
+        best = min_size
+        low = min_size
+        high = max_size
+
+        while low <= high:
+            mid = (low + high) // 2
+            f = QFont(family, mid)
+            f.setBold(bold)
+            fm = QtGui.QFontMetrics(f)
+            br = fm.boundingRect(txt)
+            if (
+                br.width() <= rect.width() - pad
+                and br.height() <= rect.height() - pad
+            ):
+                best = mid
+                low = mid + 1
+            else:
+                high = mid - 1
+
+        fit_font = QFont(family, best)
+        fit_font.setBold(bold)
+        p.setFont(fit_font)
         p.drawText(QRect(rect), Qt.AlignmentFlag.AlignCenter, txt)
         p.restore()
 
@@ -323,7 +358,7 @@ class WTouchScreen(QWidget):
         p.rotate(self.angle)
         p.translate(-self.width() / 2, -self.height() / 2)
 
-        # background
+        # widget background
         p.fillRect(
             self.get_element_rect("widget"),
             WTouchScreen.BG_COLOR,
@@ -331,43 +366,22 @@ class WTouchScreen(QWidget):
 
         # widget contour
         p.setPen(QPen(WTouchScreen.CONTOUR_COLOR, 2))
-        contour_rect = self.get_element_rect("widget")
-        contour_rect = contour_rect.marginsRemoved(QMargins(1, 1, 1, 1))
-        p.drawRect(contour_rect)
+        p.drawRect(
+            self.get_element_rect("widget").marginsRemoved(
+                QMargins(1, 1, 1, 1)
+            )
+        )
+
+        # screen background
+        p.fillRect(
+            self.get_element_rect("screen"),
+            WTouchScreen.DARK_COLOR,
+        )
 
         # display images
         for img in self.get_current_display():
-            # {
-            #     "name": name,
-            #     "type": "xy_stripes",
-            #     "centerX": centerX,
-            #     "centerY": centerY,
-            #     "rotation": rotation,
-            #     "scale": scale,
-            #     "stripe_angle": stripe_angle,
-            #     "thickness1": thickness1,
-            #     "thickness2": thickness2,
-            #     "color1": color1,
-            #     "color2": color2,
-            #     "unit": unit,
-            # }{
-            #     "name": name,
-            #     "type": "xy_image",
-            #     "id": id,
-            #     "centerX": centerX,
-            #     "centerY": centerY,
-            #     "rotation": rotation,
-            #     "scale": scale,
-            #     "unit": unit,
-            # }
             if img["type"] not in ["xy_image", "xy_stripes"]:
                 continue
-
-            # side contour
-            contour_rect = self.IMAGE_RECT
-            margins = QMargins(1, 1, 1, 1)
-            contour_rect = contour_rect.marginsAdded(margins)
-            p.fillRect(contour_rect, WTouchScreen.CONTOUR_COLOR)
 
             if img["type"] == "xy_image":
                 # image
@@ -395,6 +409,8 @@ class WTouchScreen(QWidget):
                 p.save()
                 p.translate(cx_px, cy_px)
                 p.rotate(img_rot)
+                p.setPen(WTouchScreen.CONTOUR_COLOR)
+                p.drawRect(self.IMAGE_RECT)
                 p.fillRect(self.IMAGE_RECT, img_clr)
                 p.setPen(pen_clr)
                 font = QFont("Calibri", 16)
@@ -438,7 +454,6 @@ class WTouchScreen(QWidget):
                 # clip to target rect so stripes don't overflow
                 p.setClipRect(target_rect)
                 p.setPen(QPen(color2, thickness2))
-                p.save()
                 p.rotate(stripe_angle)
                 # draw stripes across an extended area
                 ext = int(math.hypot(w, h) // 2) + max(w, h)
@@ -446,7 +461,6 @@ class WTouchScreen(QWidget):
                 for i in range(-ext, ext + spacing, spacing):
                     x = i
                     p.drawLine(x, -ext, x, ext)
-                p.restore()
                 p.restore()
 
         if self.touchscreen is not None and not self.touchscreen.enabled:
@@ -482,11 +496,14 @@ class WTouchScreen(QWidget):
                 continue
 
             hline, vline = self.get_touch_cross(indicator)
-            p.save()
-            p.translate(1, 1)  # correct pen width
-            touch_color = WTouchScreen.TOUCH_COLOR
+            if indicator.on_symbol:
+                touch_color = WTouchScreen.CALIBRATION_COLOR
+            else:
+                touch_color = WTouchScreen.TOUCH_COLOR
             touch_color.setAlpha(indicator.get_alpha())
+            p.save()
             p.setPen(QPen(touch_color, 2))
+            p.translate(1, 1)  # correct pen width
             p.drawLine(hline)
             p.drawLine(vline)
             p.restore()
@@ -495,7 +512,7 @@ class WTouchScreen(QWidget):
         name_clr = WTouchScreen.BG_COLOR.darker(200)
         name_clr.setAlpha(100)
         p.setPen(name_clr)
-        font_name = QFont("Calibri", 8)
+        font_name = QFont("Calibri", 16)
         font_name.setBold(True)
         p.setFont(font_name)
         self.draw_text(p, self.get_element_rect("name"), self.name)
@@ -542,12 +559,13 @@ class WTouchScreen(QWidget):
         mode_menu.addAction(rat_mode)
         actions[rat_mode] = (self.set_mode, ("rat",))
 
-        action = QtGui.QAction("Touch left", menu)
-        menu.addAction(action)
-        actions[action] = (self.touch_on, ("left",))
-        action = QtGui.QAction("Touch right", menu)
-        menu.addAction(action)
-        actions[action] = (self.touch_on, ("right",))
+        user_touch = QMenu("Touch image", menu)
+        menu.addMenu(user_touch)
+        for img in self.get_current_display():
+            name = TSImage.get_name_from_id(img["id"])
+            action = QtGui.QAction(name, user_touch)
+            user_touch.addAction(action)
+            actions[action] = (self.user_touch, (img,))
 
         action = QtGui.QAction("Toggle Calibration", menu)
         menu.addAction(action)
@@ -650,78 +668,91 @@ class WTouchScreen(QWidget):
         if mode == "rat":
             self.touchscreen.setRatMode()
 
-    def touch_on(self, side: str):
-        """Simulate a touch at the given side ('left' or 'right')."""
-        x = WTouchScreen.SCREEN_SIZE.width() // 2
-        x += -400 if side == "left" else 400
-        y = 750
-
+    def user_touch(self, img: dict[str, Any]):
         if self.touchscreen is None:
             return
 
-        img = None
-        i = 0
-        display_list = self.get_current_display()
-        while img is None and i < len(display_list):
-            if side in display_list[i]["name"]:
-                img = display_list[i]
-            i += 1
-
-        if img is None:
-            self.touchscreen.fireEvent(
-                DeviceEvent(
-                    "touchscreen",
-                    self.touchscreen,
-                    f"missed {x},{y}",
-                    (x, y),
-                )
-            )
-            return
-
-        name = (
-            f"simulation_{side}_image_"
-            f"{TSImage.get_name_from_id(img['id'])}"
+        desc = (
+            f"symbol xy touched {img['name']} id {img['id']} "
+            f"at display_ratio: {img['centerX']:.3f},{img['centerY']:.3f} "
+            f"px: {int(img['centerX'])},{int(img['centerY'])},"
+            f"{int(img['centerX'])},{int(img['centerY'])}"
+        )
+        data = (
+            img["name"],
+            img["id"],
+            img["centerX"],
+            img["centerY"],
+            img["centerX"],
+            img["centerY"],
+            img["centerX"],
+            img["centerY"],
         )
         self.touchscreen.fireEvent(
             DeviceEvent(
                 "touchscreen",
                 self.touchscreen,
-                f"symbol xy touched {name} id {img['id']} at 0,0,{x},{y}",
-                (name, img["id"], 0, 0, x, y),
+                desc,
+                data,
             )
         )
 
     def toggle_calibration(self):
         """Toggle the calibration mode of the touchscreen device."""
         self.show_calibration = not self.show_calibration
+        self.update()
         if not isinstance(self.touchscreen, TouchScreen2):
             return
         self.touchscreen.toggleCalibration()
 
+    def closeEvent(self, event: QCloseEvent):  # type: ignore[override]
+        """Clean up when the widget is closed by the window manager (X button).
 
-def test_mode(comPort: str, widget_angle: int = 0):
-    """Test mode with a physical touchscreen device on the given COM port."""
+        Detach the device listener and attempt an orderly shutdown of the
+        bound touchscreen/device threads, then quit the QApplication so the
+        process exits.
+        """
+        # Detach listener if any
+        if self.touchscreen is not None:
+            self.touchscreen.removeDeviceListener(
+                self.widget_touchscreen_listener
+            )
+            self.touchscreen.shutdown()
+        super().closeEvent(event)
+
+
+def get_screen_size(app: QApplication) -> QSize | None:
+    """Get the screen size of the primary display."""
+    screen = app.primaryScreen()
+    if screen is None:
+        return None
+    return screen.size()
+
+
+def test_mode(com_port: str, widget_angle: int = 0):
+    """Test mode: open the widget to control the physical touchscreen device on
+    the given COM port. The widget orientation can be set with the
+    `widget_angle` parameter (-90, 0, 90, 180)."""
     import sys
 
-    ts = TouchScreen2(comPort)
-    app = QtWidgets.QApplication(sys.argv)
-    wts = WTouchScreen(angle=widget_angle)
-    wts.bindToTouchScreen(ts)
-    wts.setName("TouchScreen Widget - Test Mode")
-    wts.show()
-    screen = app.primaryScreen()
-    if screen:
-        screen = screen.geometry()
-    else:
-        raise RuntimeError("No primary screen found")
-    wts.move(
-        screen.width() // 3 - wts.width() // 2,
-        screen.height() // 3 - wts.height() // 2,
-    )
-    wts.display_image(29, cx=0.25, cy=0.5)
-    wts.display_image(30, cx=0.75, cy=0.5)
+    app = QApplication(sys.argv)
+    app.setQuitOnLastWindowClosed(True)
+    app.setApplicationName("WTouchScreen Test Mode")
+
+    widget_ts = WTouchScreen(angle=widget_angle)
+    widget_ts.setName("TouchScreen Widget - Test Mode")
+
+    ts = TouchScreen2(com_port)
+    widget_ts.bindToTouchScreen(ts)
+
+    widget_ts.show()
+
+    screen_size = get_screen_size(app)
+    if screen_size is not None:
+        widget_ts.move(
+            screen_size.width() // 3 - widget_ts.width() // 2,
+            screen_size.height() // 3 - widget_ts.height() // 2,
+        )
+    widget_ts.display_image(29, cx=0.25, cy=0.5)
+    widget_ts.display_image(30, cx=0.75, cy=0.5)
     sys.exit(app.exec())
-
-
-if __name__ == "__main__":
-    test_mode("COM4", widget_angle=0)

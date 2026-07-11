@@ -8,7 +8,7 @@ from pathlib import Path
 import pygame
 import serial
 
-from micecraft.devices.touchscreen.inPy.ts_img_manager import TSImage
+from ts_img_manager import TSImage
 
 
 class Area:
@@ -242,7 +242,7 @@ class ScreenTouch:
         self.touch_id: Any = touch_id
         """unique identifier of the touch"""
         self.center: tuple[float, float] = center
-        """center of touch (cx, cy) in normalized coordinates (area ratio)"""
+        """center of touch (cx, cy) in display ratio (1.0 - 0.0)"""
         self.surface = surface
         """pygame.Surface of the touch to display"""
 
@@ -566,10 +566,10 @@ class ScreenDisplayManager:
         cx, cy = self.display_area.get_center_px()
 
         lines = [
-            f"area: {aw} x {ah} px",
+            f"display: {aw} x {ah} px",
             f"center: ({cx}, {cy}) px",
             f"angle: {angle:.0f} deg",
-            f"area: {aw_ratio:.2f} x {ah_ratio:.2f} screen ratio",
+            f"display: {aw_ratio:.2f} x {ah_ratio:.2f} screen ratio",
             f"center: ({cx / sw:.2f}, {cy / sh:.2f}) screen ratio",
         ]
 
@@ -620,7 +620,7 @@ class ScreenDisplayManager:
                 labels.append(f"{size_ratio[0]:.2f}")
                 labels.append("x")
                 labels.append(f"{size_ratio[1]:.2f}")
-                labels.append("area ratio")
+                labels.append("display ratio")
             txt = [font.render(l, True, (255, 255, 255)) for l in labels]
             total_h = sum(s.get_height() for s in txt) + (len(txt) - 1) * 4
             oy = (size_px - total_h) // 2
@@ -669,7 +669,6 @@ class ScreenDisplayManager:
     ) -> None:
         """Set the display mode by specifying the active area size, center and
         rotation."""
-        # store normalized ratios on the Area objects (Area expects ratios)
         self.display_area.size = display_size
         self.display_area.center = display_center
         self.display_area.rotation = display_rotation % 360
@@ -687,36 +686,66 @@ class ScreenDisplayManager:
     def set_mouse_mode(self) -> None:
         """Set the display to mouse mode."""
         sw, sh = self.screen.get_size()
-        cx = 0.125
-        cy = 0.5
-        w = sh / sw
-        h = sw / sh / 4
+
+        display_size = (sh / sw, sw / sh / 4)
+        display_center = (0.125, 0.5)
+        display_rotation = -90
+        display_invert_axis = (True, True)
+
+        detector_size = (1, 1.1)
+        detector_center = (
+            detector_size[0] / 2,
+            0.5 + (1 - detector_size[1]) / 2,
+        )
+        detector_rotation = 0
+        detector_invert_axis = (True, True)
 
         self.set_mode(
-            display_size=(w, h),
-            display_center=(cx, cy),
-            display_rotation=-90,
-            detector_invert_axis=(True, True),
+            display_size,
+            display_center,
+            display_rotation,
+            display_invert_axis,
+            detector_size,
+            detector_center,
+            detector_rotation,
+            detector_invert_axis,
         )
 
     def set_rat_mode(self) -> None:
         """Set the display to rat mode."""
-        aw = 1
-        ah = 0.82
-        cx = aw / 2
-        cy = 0.5 + (1 - ah) / 2
+        display_size = (0.96, 0.82)
+        display_center = (
+            display_size[0] / 2,
+            0.5 + (1 - display_size[1]) / 2,
+        )
+        display_rotation = 0
+        display_invert_axis = (False, False)
+
+        detector_size = (0.95, 1.4)
+        detector_center = (
+            display_size[0] / 2,
+            1.05 - display_size[1] / 2,
+        )
+        detector_rotation = 180
+        detector_invert_axis = (False, False)
+
         self.set_mode(
-            display_size=(aw, ah),
-            display_center=(cx, cy),
-            display_rotation=0,
-            detector_invert_axis=(True, True),
+            display_size,
+            display_center,
+            display_rotation,
+            display_invert_axis,
+            detector_size,
+            detector_center,
+            detector_rotation,
+            detector_invert_axis,
         )
 
     # Rendering
     # ----------------
 
     def render(self, fps: int = 30) -> None:
-        """Clear the display, blit all images, optionally draw calibration, flip."""
+        """Clear the display, blit all images, optionally draw calibration,
+        flip."""
 
         self.screen.fill((0, 0, 0))  # clear the display to black
 
@@ -869,13 +898,18 @@ class TouchScreen:
         images_touched = self.manager.hit_test(touch)
         if images_touched:
             for image in images_touched:
+                img_center_px = self.manager.area_ratio_to_px(image.center)
                 self.send(
                     f"symbol xy touched {image.name} id {image.idx} "
-                    f"at {image.center[0]:.4f},{image.center[1]:.4f},"
+                    f"at display_ratio: {touch.center[0]:.3f},{touch.center[1]:.3f} "
+                    f"px: {img_center_px[0]},{img_center_px[1]},"
                     f"{px_screen_pos[0]},{px_screen_pos[1]}"
                 )
         else:
-            self.send(f"missed {px_screen_pos[0]},{px_screen_pos[1]}")
+            self.send(
+                f"missed display_ratio: {touch.center[0]:.3f},{touch.center[1]:.3f} "
+                f"px: {px_screen_pos[0]},{px_screen_pos[1]}"
+            )
 
     # Surface creation
     # ----------------
@@ -962,8 +996,24 @@ class TouchScreen:
         r: float = 0.0,
         s: float = 1.0,
     ) -> None:
-        """Set an image by its center coordinates (cx, cy) in area ratio
-        (0.0 - 1.0)."""
+        """Set an image by its center coordinates (cx, cy) in display ratio
+        (0.0 - 1.0).
+
+        Parameters:
+        -----------
+        name: str
+            Name of the image.
+        index: int
+            Index of the image in the loaded images.
+        cx: float
+            X coordinate of the image center (display ratio).
+        cy: float
+            Y coordinate of the image center (display ratio).
+        r: float
+            Rotation angle in degrees.
+        s: float
+            Scale factor.
+        """
 
         surf = self.getImage(index)
         if surf is None:
@@ -988,7 +1038,7 @@ class TouchScreen:
         color1: tuple = (255, 255, 255),
         color2: tuple = (0, 0, 0),
     ) -> pygame.Surface:
-        """Set an image by its center coordinates (cx, cy) in area ratio
+        """Set an image by its center coordinates (cx, cy) in display ratio
         (0.0 - 1.0).
 
         Parameters:
@@ -996,9 +1046,9 @@ class TouchScreen:
         name: str
             Name of the image.
         cx: float
-            X coordinate of the image center (area ratio).
+            X coordinate of the image center (display ratio).
         cy: float
-            Y coordinate of the image center (area ratio).
+            Y coordinate of the image center (display ratio).
         r: float
             Rotation angle in degrees.
         s: float
@@ -1405,7 +1455,8 @@ class TouchScreen:
         """Handle pygame events for one frame."""
         for _ in range(10):
             cmd = self.read_command()
-            self.execute_command(cmd)
+            if self.execute_command(cmd):
+                self.manager.render()
             if cmd is None:
                 break
 
@@ -1563,28 +1614,11 @@ class TouchScreen:
                 self.manager.remove_touch(event.finger_id)
                 self.send(f"finger up: {event.finger_id}")
 
-            # Mouse events (desktop testing)
-            if self.ser is None:
-                if event.type == pygame.MOUSEBUTTONDOWN:
-                    px_screen = pygame.mouse.get_pos()
-                    point = self.manager.display_area.px_to_screen_ratio(
-                        px_screen
-                    )
-                    point = self.manager.display_area.screen_to_area(point)
-                    touch = self.manager.add_touch("mouse", point)
-                    print(f"mouse down: add touch {touch.center}")
-                    self.check_if_touch_on_image(touch, px_screen)
-
-                if event.type == pygame.MOUSEBUTTONUP:
-                    self.manager.remove_touch("mouse")
-                    print("mouse up: remove touch")
-
     # Main loop
     # ----------------
 
     def step(self, fps: int = 30) -> bool:
         """Process one frame. Returns False when the app should quit."""
-        self.read_command()
         self.process_commands()
         self.manager.render(fps=fps)
         return self.running
