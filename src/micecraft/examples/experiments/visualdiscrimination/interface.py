@@ -248,7 +248,6 @@ class VisualDiscriminationInterface(QWidget):
         animal.show()
         animal.number = number
 
-        animal.vpos = {}
         animal.vpos["home"] = (animal_x, animal_y)
         animal.vpos["target_location"] = (animal_x, animal_y)
         animal.vpos["location"] = (animal_x, animal_y)
