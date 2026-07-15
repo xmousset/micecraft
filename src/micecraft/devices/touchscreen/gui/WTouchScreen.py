@@ -128,7 +128,7 @@ class WTouchScreen(QWidget):
     CONTOUR_COLOR = QColor(94, 94, 94)
     LIGHT_COLOR = QColor(244, 244, 244)
     DARK_COLOR = QColor(33, 33, 33)
-    TOUCH_COLOR = QColor(255, 133, 194)
+    TOUCH_COLOR = [QColor(255, 133, 194), QColor(33, 194, 33)]  # False, True
     CALIBRATION_COLOR = QColor(0, 194, 0)
 
     def __init__(
@@ -167,10 +167,10 @@ class WTouchScreen(QWidget):
         optional transform to apply the block wall rotation.
 
         Possible values for element:
-            - "widget"  : the entire widget
-            - "inner"   : the inner area of the widget (without margins)
-            - "name"    : the area displaying the widget's name
-            - "screen"  : the whole display area
+        - "widget"  : the entire widget
+        - "inner"   : the inner area of the widget (without margins)
+        - "name"    : the area displaying the widget's name
+        - "display"  : the display area
         """
         text_h = WTouchScreen.WIDGET_TEXT_HEIGHT
         margin = WTouchScreen.WIDGET_MARGIN
@@ -205,7 +205,7 @@ class WTouchScreen(QWidget):
                 rect = inner_rect
             case "name":
                 rect = name_rect
-            case "screen":
+            case "display":
                 rect = screen_rect
             case _:
                 raise ValueError(f"Invalid element value: {element}")
@@ -278,7 +278,7 @@ class WTouchScreen(QWidget):
             point = QPointF(xr, yr)
 
         if point is not None:
-            wscreen = self.get_element_rect("screen")
+            wscreen = self.get_element_rect("display")
             wpoint = QPointF(
                 point.x() * wscreen.width() + wscreen.x(),
                 point.y() * wscreen.height() + wscreen.y(),
@@ -374,7 +374,7 @@ class WTouchScreen(QWidget):
 
         # screen background
         p.fillRect(
-            self.get_element_rect("screen"),
+            self.get_element_rect("display"),
             WTouchScreen.DARK_COLOR,
         )
 
@@ -390,7 +390,7 @@ class WTouchScreen(QWidget):
                 img_cy = img["centerY"]
                 img_rot = img.get("rotation", 0)
 
-                screen_rect = self.get_element_rect("screen")
+                screen_rect = self.get_element_rect("display")
                 if img["unit"] == "ratio":
                     img_cx = img_cx * screen_rect.width()
                     img_cy = img_cy * screen_rect.height()
@@ -432,7 +432,7 @@ class WTouchScreen(QWidget):
                 img_cx = img.get("centerX", 0.5)
                 img_cy = img.get("centerY", 0.5)
 
-                screen_rect = self.get_element_rect("screen")
+                screen_rect = self.get_element_rect("display")
                 if unit == "ratio":
                     img_cx = img_cx * screen_rect.width()
                     img_cy = img_cy * screen_rect.height()
@@ -469,12 +469,12 @@ class WTouchScreen(QWidget):
             font = QFont("Calibri", 13)
             font.setBold(False)
             p.setFont(font)
-            self.draw_text(p, self.get_element_rect("screen"), "DISABLED")
+            self.draw_text(p, self.get_element_rect("display"), "DISABLED")
 
         # calibration overlay
         if self.show_calibration:
             p.setPen(QPen(WTouchScreen.CALIBRATION_COLOR, 2))
-            contour_rect = self.get_element_rect("screen")
+            contour_rect = self.get_element_rect("display")
             p.drawRect(contour_rect)
             dx = contour_rect.width() // 2
             dy = contour_rect.height() // 2
@@ -497,9 +497,9 @@ class WTouchScreen(QWidget):
 
             hline, vline = self.get_touch_cross(indicator)
             if indicator.on_symbol:
-                touch_color = WTouchScreen.CALIBRATION_COLOR
+                touch_color = WTouchScreen.TOUCH_COLOR[1]
             else:
-                touch_color = WTouchScreen.TOUCH_COLOR
+                touch_color = WTouchScreen.TOUCH_COLOR[0]
             touch_color.setAlpha(indicator.get_alpha())
             p.save()
             p.setPen(QPen(touch_color, 2))
@@ -721,14 +721,6 @@ class WTouchScreen(QWidget):
         super().closeEvent(event)
 
 
-def get_screen_size(app: QApplication) -> QSize | None:
-    """Get the screen size of the primary display."""
-    screen = app.primaryScreen()
-    if screen is None:
-        return None
-    return screen.size()
-
-
 def test_mode(com_port: str, widget_angle: int = 0):
     """Test mode: open the widget to control the physical touchscreen device on
     the given COM port. The widget orientation can be set with the
@@ -746,9 +738,11 @@ def test_mode(com_port: str, widget_angle: int = 0):
     widget_ts.bindToTouchScreen(ts)
 
     widget_ts.show()
-
-    screen_size = get_screen_size(app)
-    if screen_size is not None:
+    
+    screen = app.primaryScreen()
+    
+    if screen is not None:
+        screen_size = screen.size()
         widget_ts.move(
             screen_size.width() // 3 - widget_ts.width() // 2,
             screen_size.height() // 3 - widget_ts.height() // 2,

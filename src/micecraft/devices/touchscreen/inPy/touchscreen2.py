@@ -722,8 +722,8 @@ class ScreenDisplayManager:
 
         det_size = (0.95, 1.4)
         det_center = (
-            dis_size[0] / 2,
-            1.05 - dis_size[1] / 2,
+            det_size[0] / 2,
+            1.05 - det_size[1] / 2,
         )
         det_rotation = 180
 
