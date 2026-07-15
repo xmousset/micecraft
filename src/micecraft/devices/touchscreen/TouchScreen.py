@@ -479,6 +479,7 @@ if __name__ == '__main__':
         print("1: 2 image test with framing")
         print("l 3 2 350 : show a layout of 3 cols per 2 rows with 350 image size")        
         print("i: set stripes pattern: i <angle> or i <white> <black> <angle>")
+        print("b: set background stripes pattern: b <angle> or b <white> <black> <angle>")
         a = input("command:")
         
         if a.startswith( "a" ):
