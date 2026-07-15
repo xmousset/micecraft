@@ -759,18 +759,19 @@ class ScreenDisplayManager:
             y = cy + ScreenImage.OFFSET[1] - s.get_height() // 2
             area.blit(s, (x, y))
 
-        # blit all touches
-        for touch in self.touches.values():
-            s = touch.surface
-            cx, cy = self.area_ratio_to_px(touch.center)
-            x = cx + ScreenTouch.OFFSET[0] - s.get_width() // 2
-            y = cy + ScreenTouch.OFFSET[1] - s.get_height() // 2
-            area.blit(s, (x, y))
 
-        # draw calibration if enabled
+        # draw calibration and touches if enabled
         if self.show_calibration:
             cali = self.get_calibration()
             area.blit(cali, (0, 0))
+            
+            # blit all touches
+            for touch in self.touches.values():
+                s = touch.surface
+                cx, cy = self.area_ratio_to_px(touch.center)
+                x = cx + ScreenTouch.OFFSET[0] - s.get_width() // 2
+                y = cy + ScreenTouch.OFFSET[1] - s.get_height() // 2
+                area.blit(s, (x, y))
 
         # rotate window
         angle = self.display_area.rotation
