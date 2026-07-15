@@ -685,59 +685,54 @@ class ScreenDisplayManager:
 
     def set_mouse_mode(self) -> None:
         """Set the display to mouse mode."""
+        # TO MODIFY
         sw, sh = self.screen.get_size()
 
-        display_size = (sh / sw, sw / sh / 4)
-        display_center = (0.125, 0.5)
-        display_rotation = -90
-        display_invert_axis = (True, True)
+        dis_size = (sh / sw, sw / sh / 4)
+        dis_center = (0.125, 0.5)
+        dis_rotation = -90
+        dis_invert_axis = (True, True)
 
-        detector_size = (1, 1.1)
-        detector_center = (
-            detector_size[0] / 2,
-            0.5 + (1 - detector_size[1]) / 2,
+        det_size = (1, 1.1)
+        det_center = (
+            det_size[0] / 2,
+            0.5 + (1 - det_size[1]) / 2,
         )
-        detector_rotation = 0
-        detector_invert_axis = (True, True)
+        det_rotation = 0
+        det_invert_axis = (True, True)
 
         self.set_mode(
-            display_size,
-            display_center,
-            display_rotation,
-            display_invert_axis,
-            detector_size,
-            detector_center,
-            detector_rotation,
-            detector_invert_axis,
+            display_size=dis_size,
+            display_center=dis_center,
+            display_rotation=dis_rotation,
+            display_invert_axis=dis_invert_axis,
+            detector_size=det_size,
+            detector_center=det_center,
+            detector_rotation=det_rotation,
+            detector_invert_axis=det_invert_axis,
         )
 
     def set_rat_mode(self) -> None:
         """Set the display to rat mode."""
-        display_size = (0.96, 0.82)
-        display_center = (
-            display_size[0] / 2,
-            0.5 + (1 - display_size[1]) / 2,
+        dis_size = (0.96, 0.82)
+        dis_center = (
+            dis_size[0] / 2,
+            0.5 + (1 - dis_size[1]) / 2,
         )
-        display_rotation = 0
-        display_invert_axis = (False, False)
 
-        detector_size = (0.95, 1.4)
-        detector_center = (
-            display_size[0] / 2,
-            1.05 - display_size[1] / 2,
+        det_size = (0.95, 1.4)
+        det_center = (
+            dis_size[0] / 2,
+            1.05 - dis_size[1] / 2,
         )
-        detector_rotation = 180
-        detector_invert_axis = (False, False)
+        det_rotation = 180
 
         self.set_mode(
-            display_size,
-            display_center,
-            display_rotation,
-            display_invert_axis,
-            detector_size,
-            detector_center,
-            detector_rotation,
-            detector_invert_axis,
+            display_size=dis_size,
+            display_center=dis_center,
+            detector_size=det_size,
+            detector_center=det_center,
+            detector_rotation=det_rotation,
         )
 
     # Rendering
