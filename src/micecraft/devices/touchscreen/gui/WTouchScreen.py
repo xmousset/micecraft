@@ -119,6 +119,8 @@ class WTouchScreen(QWidget):
     """(width, height) in *px* for horizontal orientation."""
     WIDGET_TEXT_HEIGHT = 18
     """Margin in *px* between the widget border and the text."""
+    WIDGET_ALARM_WIDTH = 28
+    """Width in *px* of the alarm status indicator area."""
     WIDGET_MARGIN = 6
     """Margin in *px* between every elements."""
     IMAGE_RECT = QRect(-16, -16, 33, 33)
@@ -170,8 +172,10 @@ class WTouchScreen(QWidget):
         - "widget"  : the entire widget
         - "inner"   : the inner area of the widget (without margins)
         - "name"    : the area displaying the widget's name
-        - "display"  : the display area
+        - "alarm"   : the area displaying the alarm status
+        - "display" : the display area
         """
+        alarm_w = WTouchScreen.WIDGET_ALARM_WIDTH
         text_h = WTouchScreen.WIDGET_TEXT_HEIGHT
         margin = WTouchScreen.WIDGET_MARGIN
 
@@ -185,28 +189,32 @@ class WTouchScreen(QWidget):
             QMargins(margin, margin, margin, margin)
         )
 
-        name_rect = QRect(
-            inner_rect.x(),
-            inner_rect.y(),
-            inner_rect.width(),
-            text_h,
-        )
-        screen_rect = QRect(
-            inner_rect.x(),
-            inner_rect.y() + text_h + margin,
-            inner_rect.width(),
-            inner_rect.height() - text_h - margin,
-        )
-
         match element:
             case "widget":
                 rect = widget_rect
             case "inner":
                 rect = inner_rect
             case "name":
-                rect = name_rect
+                rect = QRect(
+                    inner_rect.x() + alarm_w + margin,
+                    inner_rect.y(),
+                    inner_rect.width() - alarm_w - margin,
+                    text_h,
+                )
             case "display":
-                rect = screen_rect
+                rect = QRect(
+                    inner_rect.x(),
+                    inner_rect.y() + text_h + margin,
+                    inner_rect.width(),
+                    inner_rect.height() - text_h - margin,
+                )
+            case "alarm":
+                rect = QRect(
+                    inner_rect.x(),
+                    inner_rect.y(),
+                    alarm_w,
+                    text_h,
+                )
             case _:
                 raise ValueError(f"Invalid element value: {element}")
 
@@ -517,13 +525,29 @@ class WTouchScreen(QWidget):
         p.setFont(font_name)
         self.draw_text(p, self.get_element_rect("name"), self.name)
 
-        # if isinstance(self.touchscreen, TouchScreen):
-        #     self.visualDeviceAlarmStatus.draw(
-        #         p,
-        #         self.touchscreen,
-        #         ellipseRect=QRect(22, 60, 10, 10),
-        #         textRect=QRect(-25, 13, 100, 50),
-        #     )
+        # alarm
+        alarm_rect = self.get_element_rect("alarm")
+        dot_size = 7
+        alarm_margin = 3
+        ellipse_rect = QRect(
+            alarm_rect.x() + alarm_margin,
+            alarm_rect.y() + alarm_rect.height() // 2 - dot_size // 2,
+            dot_size,
+            dot_size,
+        )
+        text_rect = QRect(
+            alarm_rect.x() + dot_size + 2*alarm_margin,
+            alarm_rect.y(),
+            alarm_rect.width() - dot_size - 2*alarm_margin,
+            alarm_rect.height(),
+        )
+        if isinstance(self.touchscreen, TouchScreen2):
+            self.visualDeviceAlarmStatus.draw(
+                p,
+                self.touchscreen,
+                ellipseRect=ellipse_rect,
+                textRect=text_rect,
+            )
 
         p.end()
 
@@ -749,4 +773,8 @@ def test_mode(com_port: str, widget_angle: int = 0):
         )
     widget_ts.display_image(29, cx=0.25, cy=0.5)
     widget_ts.display_image(30, cx=0.75, cy=0.5)
+    input()
+    ts.crash()
     sys.exit(app.exec())
+    
+    return widget_ts

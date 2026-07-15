@@ -318,6 +318,11 @@ class TouchScreen2:
 
     # ================ UTILS ================
 
+    def isAlarmOn(self):
+        if not self.comManager.alarmConnect.isAlarmOn():
+            return "Device disconnected"
+        return False
+
     def log(self, message):
         logging.info(f"[TouchScreen][{self.comPort}][{self.name}] {message}")
 

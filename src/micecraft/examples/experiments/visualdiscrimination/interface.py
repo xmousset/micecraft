@@ -31,7 +31,7 @@ from micecraft.devices.touchscreen.gui.WTouchScreen import WTouchScreen
 from micecraft.soft.gui.VisualStorageAlarm import VisualStorageAlarm
 from micecraft.devices.touchscreen.inPy.ts_img_manager import TSImage
 from micecraft.examples.experiments.visualdiscrimination.experiment import (
-    VisualDiscriminationExperiment
+    VisualDiscriminationExperiment,
 )
 
 
@@ -262,7 +262,7 @@ class VisualDiscriminationInterface(QWidget):
             )
 
     def get_all_rfid(self):
-        """Get all RFID (visual only) in *animals*."""
+        """Get all RFID (visual only) in *self.animals*."""
         return [animal.rfid for animal in self.animals]
 
     def update_rfid(self):
