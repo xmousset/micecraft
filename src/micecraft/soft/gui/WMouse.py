@@ -6,16 +6,16 @@ Created on 14 mars 2023
 
 from PyQt6.QtGui import QPaintEvent, QPainter, QFont, QPen, QColor
 from PyQt6.QtCore import QRect, Qt
-from PyQt6 import *
-from PyQt6.QtWidgets import QWidget, QMenu
+from PyQt6 import QtCore, QtGui, QtWidgets
+
 
 class WMouse(QtWidgets.QWidget):
 
     
-    def __init__(self, x,y, *args, **kwargs ):
+    def __init__(self, x, y, *args, **kwargs ):
         super().__init__( *args, **kwargs )
-        self.x = x
-        self.y = y
+        self.x: float = x
+        self.y: float = y
         
         self.setGeometry( int(self.x), int(self.y), 125, 50 )
         self.name ="block"
@@ -23,6 +23,8 @@ class WMouse(QtWidgets.QWidget):
         self.description = ""
         self.number = 0
         self.setBackgroundColor( 100, 100, 100 )
+        
+        self.vpos: dict[str, tuple[float, float]] = {}
     
     def setName(self , name ):
         self.name = name

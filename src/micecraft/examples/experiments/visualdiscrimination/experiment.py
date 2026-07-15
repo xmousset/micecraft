@@ -10,7 +10,6 @@ trial outcomes.
 import os
 import sys
 import logging
-from enum import Enum
 from pathlib import Path
 from random import shuffle
 from threading import Timer
@@ -19,7 +18,7 @@ from datetime import datetime, timedelta
 
 from micecraft.devices.gate.Gate import Gate, GateOrder
 from micecraft.devices.waterpump.WaterPump import WaterPump
-from micecraft.devices.touchscreen.TouchScreen import TouchScreen
+from micecraft.devices.touchscreen.TouchScreen2 import TouchScreen2
 from micecraft.devices.roomSensor.RoomSensorDigest import RoomSensorDigest
 from micecraft.soft.utils.WaitForAllThreads import WaitForAllThreads
 from micecraft.soft.device_event.DeviceEvent import DeviceEvent
@@ -30,6 +29,7 @@ from micecraft.soft.camera_recorder.CameraRecorder import (
     CameraRecorder,
     CRText,
 )
+from micecraft.devices.touchscreen.inPy.ts_img_manager import TSImage
 
 
 class ExperimentSettings:
@@ -133,43 +133,6 @@ class ExperimentSettings:
         self.comment, _ = QInputDialog.getText(
             None, "Experiment comment", "Experiment comments:"
         )
-
-
-class TSImage(Enum):
-    """All possible displayed images on the touchscreen."""
-
-    NONE = -1
-    DARK = 0
-    LIGHT = 1
-    FLOWER = 2
-    PLANE = 3
-
-    def get_opposite(self):
-        """Get the opposite TSImage."""
-        opposites = {
-            TSImage.LIGHT: TSImage.DARK,
-            TSImage.DARK: TSImage.LIGHT,
-            TSImage.FLOWER: TSImage.PLANE,
-            TSImage.PLANE: TSImage.FLOWER,
-            TSImage.NONE: TSImage.NONE,
-        }
-        return opposites[self]
-
-    def get_image_id(self) -> int:
-        """Get the index of the image in the image bank of the touchscreen.
-        This index is needed in order to display it on the touchscreen."""
-        ids = {
-            TSImage.DARK: 8,
-            TSImage.LIGHT: 7,
-            TSImage.FLOWER: 1,
-            TSImage.PLANE: 0,
-            TSImage.NONE: 8,
-        }
-        return ids[self]
-
-    def __str__(self) -> str:
-        """Return the name of the TSImage."""
-        return self.name
 
 
 class Phase:
@@ -647,7 +610,7 @@ class Room:
         self,
         name: str,
         gate: Gate,
-        touchscreen: TouchScreen,
+        touchscreen: TouchScreen2,
         waterpump: WaterPump,
     ):
         """Initialise a room with its name and devices."""
@@ -677,7 +640,7 @@ class Room:
 
         self.gate: Gate = gate
         self.gate.name = self.name + "-" + "Gate"
-        self.ts: TouchScreen = touchscreen
+        self.ts: TouchScreen2 = touchscreen
         self.ts.name = self.name + "-" + "TS"
         self.wp: WaterPump = waterpump
         self.wp.name = self.name + "-" + "WP"
@@ -720,10 +683,9 @@ class Room:
         # ----------------
         if self.touchscreen_listener not in self.ts.deviceListenerList:
             self.ts.addDeviceListener(self.touchscreen_listener)
-        self.ts.setTransparency(0.5)
+        # self.ts.setTransparency(0.5)
         self.ts.setMouseMode()
         self.ts.clear()
-        self.ts.setConfig(1, 1, 900)
         self.ts.showCalibration(False)
         if display_log:
             logging.info(
@@ -796,7 +758,7 @@ class Room:
             if animal.phase.use_opposite:
                 correct_image = correct_image.get_opposite()
 
-            if correct_image == TSImage.NONE:
+            if correct_image == TSImage.ERROR:
                 logging.info(
                     f"[warning] [trial_result] room: {str(self)} "
                     f"rfid: {animal} "
@@ -949,24 +911,22 @@ class Room:
             f"room: {str(self)} "
             f"left: {str(left_img)} "
             f"right: {str(right_img)} "
-            f"id_left: {left_img.get_image_id()} "
-            f"id_right: {right_img.get_image_id()} "
+            f"id_left: {left_img.value} "
+            f"id_right: {right_img.value} "
         )
         self.ts.setXYImage(
             f"left_image_{str(left_img)}",
-            left_img.get_image_id(),
-            1920 / 2 - 400,
-            750,
-            0,
-            1,
+            left_img.value,
+            0.25,
+            0.5,
+            unit="ratio",
         )
         self.ts.setXYImage(
             f"right_image_{str(right_img)}",
-            right_img.get_image_id(),
-            1920 / 2 + 400,
-            750,
-            0,
-            1,
+            right_img.value,
+            0.75,
+            0.5,
+            unit="ratio",
         )
 
     def ts_random_display(self, img: TSImage):
@@ -1384,7 +1344,7 @@ class VisualDiscriminationExperiment:
                 choosen_image = self.images_to_attribute[img_idx]
                 self.animals[rfid].correct_image = choosen_image
             else:
-                self.animals[rfid].correct_image = TSImage.NONE
+                self.animals[rfid].correct_image = TSImage.ERROR
 
             logging.info(
                 "[ts_image_attribution] "
@@ -1503,4 +1463,3 @@ class VisualDiscriminationExperiment:
         # ----------------
         # reading time ?
         # animal weight ?
-

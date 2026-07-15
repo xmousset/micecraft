@@ -5,7 +5,7 @@ from PyQt6.QtWidgets import QApplication
 
 from micecraft.devices.gate.Gate import Gate, GateOrder
 from micecraft.devices.waterpump.WaterPump import WaterPump
-from micecraft.devices.touchscreen.TouchScreen import TouchScreen
+from micecraft.devices.touchscreen.TouchScreen2 import TouchScreen2
 
 from micecraft.soft.camera_recorder.CameraRecorder import CameraRecorder
 from micecraft.devices.roomSensor.RoomSensorDigest import RoomSensorDigest
@@ -49,7 +49,7 @@ def define_experiment_parameters():
     Room.ALL = []
 
     wp_alpha = WaterPump(comPort="COM22")
-    ts_alpha = TouchScreen(comPort="COM20")
+    ts_alpha = TouchScreen2(comPort="COM20")
     gate_alpha = Gate(
         COM_Servo="COM36",
         COM_Arduino="COM30",
