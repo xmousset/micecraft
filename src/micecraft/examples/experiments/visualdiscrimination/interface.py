@@ -13,7 +13,6 @@ colored circles, and the application continuously updates to reflect changes in
 the experiment state.
 """
 
-import sys
 import math
 import time
 import logging
@@ -23,17 +22,16 @@ import threading
 from typing import Callable, Literal
 
 from PyQt6 import QtCore, QtGui
-from PyQt6.QtWidgets import QApplication, QMenu, QWidget
+from PyQt6.QtWidgets import QMenu, QWidget
+from micecraft.soft.gui.WMouse import WMouse
 from micecraft.soft.gui.WBlock import WBlock
 from micecraft.devices.gate.gui.WGate import WGate
 from micecraft.devices.waterpump.gui.WPump import WPump
-from micecraft.devices.touchscreen.gui.WTouchScreenTooSides import WTouchScreen
-from micecraft.soft.gui.WMouse import WMouse
+from micecraft.devices.touchscreen.gui.WTouchScreen import WTouchScreen
 from micecraft.soft.gui.VisualStorageAlarm import VisualStorageAlarm
-
+from micecraft.devices.touchscreen.inPy.ts_img_manager import TSImage
 from micecraft.examples.experiments.visualdiscrimination.experiment import (
-    TSImage,
-    VisualDiscriminationExperiment,
+    VisualDiscriminationExperiment
 )
 
 

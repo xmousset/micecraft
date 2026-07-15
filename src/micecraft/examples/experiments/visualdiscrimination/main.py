@@ -6,20 +6,20 @@ from PyQt6.QtWidgets import QApplication
 from micecraft.devices.gate.Gate import Gate, GateOrder
 from micecraft.devices.waterpump.WaterPump import WaterPump
 from micecraft.devices.touchscreen.TouchScreen2 import TouchScreen2
+from micecraft.devices.touchscreen.inPy.ts_img_manager import TSImage
 
 from micecraft.soft.camera_recorder.CameraRecorder import CameraRecorder
 from micecraft.devices.roomSensor.RoomSensorDigest import RoomSensorDigest
 from micecraft.examples.experiments.visualdiscrimination.experiment import (
+    VisualDiscriminationExperiment,
     Criteria,
     Phase,
     Room,
-    TSImage,
-    VisualDiscriminationExperiment,
 )
 from micecraft.examples.experiments.visualdiscrimination.interface import (
-    excepthook,
-    VisualRoom,
     VisualDiscriminationInterface,
+    VisualRoom,
+    excepthook,
 )
 
 
