@@ -247,7 +247,7 @@ class TouchScreen2:
             self.transparency = transparency
             self.send(f"transparency {self.transparency}")
 
-    def setImageSize(self, imageSize: int, unit: str = "px"):
+    def setImageSize(self, imageSize: int | float, unit: str = "px"):
         self.imageSize = imageSize
         self.send(f"imageSize {imageSize} {unit}")
 
@@ -378,21 +378,22 @@ if __name__ == "__main__":
     ts.setMouseMode()
     # ts.setRatMode()
 
-    print("coordinates: top left corner is 0,0")
-    print("a: send ping")
-    print("q: quit")
-    print("0-9: true image on target position")
-    print("t: thread test")
+    print("COMMAND: VARIABLES")
+    print("------------------")
     print("z: force a crash on the device")
-    print("c: toggle calibration")
-    print("i <id>: add one image")
-    print("r: rat mode")
-    print("m: mouse mode")
-    print("n: normal mode")
     print("g: grass hopper demo")
-    print("o: clear")
+    print("t: thread test")
+    print("a: send ping")
+    print("0: true on left and false on right")
+    print("1-9 <id>: put image on numpad coordinates")
+    print("c: toggle calibration")
+    print("i <id>: add one image at random position and rotation")
+    print("m: <n, m, r>: normal, mouse or rat mode")
+    print("o: clear screen")
     print("s <angle>: add one stripe image")
     print("b: add random background stripes")
+    print("# <size>: set image size in pixels")
+    print("q: quit")
 
     while True:
         command = input("command: ").strip()
@@ -404,52 +405,45 @@ if __name__ == "__main__":
         # split into tokens and normalize the command letter to lowercase
         parts = command.split()
 
-        letter = parts[0].lower()
-        args = parts[1:] if len(parts) > 1 else []
+        cmd = parts[0].lower()
+        arg = parts[1] if len(parts) == 2 else None
 
-        if letter == "q":
+        if cmd == "q":
             ts.shutdown()
             break
 
-        # numeric shorthand: '1'..'9' map to letter '0' with args
-        if letter.isnumeric():
-            args = [letter]
-            letter = "0"
-
-        if letter == "0":
-            print(letter, args)
+        if cmd.isnumeric():
             ts.clear()
-            if args[0] == "0":
+            if cmd == "0":
                 ts.setXYImage("TRUE", 29, 0.25, 0.5, unit="ratio")
                 ts.setXYImage("FALSE", 30, 0.75, 0.5, unit="ratio")
             else:
+                if arg is None:
+                    arg = "29"
                 xs = [0.25, 0.5, 0.75]
                 ys = [0.25, 0.5, 0.75]
-                pos = int(args[0]) - 1
+                pos = int(cmd) - 1
                 x = xs[pos % 3]
                 y = ys[pos // 3]
-                ts.setXYImage("TRUE", 29, x, y, unit="ratio")
+                ts.setXYImage("NUMPAD", int(arg), x, y, unit="ratio")
 
-        if letter == "a":
+        if cmd == "a":
             ts.ping()
 
-        if letter == "t":
+        if cmd == "t":
             ThreadTest(ts)
 
-        if letter == "z":
+        if cmd == "z":
             ts.crash()
 
-        if letter == "c":
+        if cmd == "c":
             ts.toggleCalibration()
 
-        if letter == "i":
-            if args:
-                try:
-                    idx = int(args[0])
-                except ValueError:
-                    idx = randint(0, 28)
-            else:
+        if cmd == "i":
+            if arg is None:
                 idx = randint(0, 28)
+            else:
+                idx = int(arg)
             ts.removeXYImage("random_image")
             ts.setXYImage(
                 "random_image",
@@ -461,29 +455,28 @@ if __name__ == "__main__":
                 "ratio",
             )
 
-        if letter == "r":
-            ts.setRatMode()
+        if cmd == "m":
+            if arg is None:
+                print("Please specify mode: n (normal), m (mouse), r (rat)")
+                continue
+            if arg.lower() == "n":
+                ts.setNormalMode()
+            elif arg.lower() == "m":
+                ts.setMouseMode()
+            elif arg.lower() == "r":
+                ts.setRatMode()
 
-        if letter == "m":
-            ts.setMouseMode()
-
-        if letter == "n":
-            ts.setNormalMode()
-
-        if letter == "g":
+        if cmd == "g":
             GrassHopper(ts)
 
-        if letter == "o":
+        if cmd == "o":
             ts.clear()
 
-        if letter == "s":
-            if args:
-                try:
-                    angle = float(args[0])
-                except ValueError:
-                    angle = randint(-90, 90)
-            else:
+        if cmd == "s":
+            if arg is None:
                 angle = randint(-90, 90)
+            else:
+                angle = float(arg)
             ts.removeXYStripes("random_stripes")
             ts.setXYStripes(
                 name="random_stripes",
@@ -494,7 +487,7 @@ if __name__ == "__main__":
                 unit="ratio",
             )
 
-        if letter == "b":
+        if cmd == "b":
             ts.setBgStripes(
                 thickness1=randint(5, 20),
                 thickness2=randint(5, 20),
@@ -502,6 +495,14 @@ if __name__ == "__main__":
                 color1=(randint(0, 255), randint(0, 255), randint(0, 255)),
                 color2=(randint(0, 255), randint(0, 255), randint(0, 255)),
             )
+
+        if cmd == "#":
+            if arg is None:
+                print("Please specify size value.")
+                continue
+            size = int(arg)
+            ts.setImageSize(size, unit="px")
+            # ts.setImageSize(0.5, unit="ratio")
 
     # exit loop cleanly
     sys.exit(0)

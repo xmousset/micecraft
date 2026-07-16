@@ -44,8 +44,8 @@ class Area:
         """(x, y) in normalized coordinates (0.0 - 1.0)"""
         self.size: tuple[float, float] = (width, height)
         """(width, height) in normalized coordinates (0.0 - 1.0)"""
-        self.rotation: float = rotation
-        """angle in degrees (CW)"""
+        self.rotation: float = rotation % 360
+        """angle in degrees (CCW)"""
         self.invert_axis: tuple[bool, bool] = invert_axis
         """(invert_x, invert_y)"""
 
@@ -57,7 +57,7 @@ class Area:
         self._size_px = self.get_size_px()
 
     def set_rotation(self, rotation: float) -> None:
-        self.rotation = rotation
+        self.rotation = rotation % 360
         self._size_px = self.get_size_px()
 
     def set_axis_inversion(self, invert_x: bool, invert_y: bool) -> None:
@@ -194,11 +194,10 @@ class Area:
 
 
 class ScreenImage:
-    """An image to display on the active area with normalized position
-    (area ratio)."""
+    """An image to display in display ratio (1.0 - 0.0)."""
 
-    OFFSET: tuple[int, int] = (0, 0)
-    """images offset (dx, dy) in pixels"""
+    OFFSET: tuple[float, float] = (0, 0)
+    """images offset (dx, dy) in display ratio (1.0 - 0.0)"""
     SIZE: int = 256
     """images size in pixels."""
     ALPHA: int = 255
@@ -210,26 +209,34 @@ class ScreenImage:
         center: tuple[float, float],
         name: str,
         idx: int | None,
+        rotation: float = 0.0,
     ):
         self.surface: pygame.Surface = surface
         """pygame.Surface of the image to display"""
         self.center: tuple[float, float] = center
-        """center of image (cx, cy) in normalized coordinates (area ratio)"""
+        """center of image (cx, cy) in display ratio (1.0 - 0.0)"""
         self.name: str = name
         """name of the image"""
         self.idx: int | None = idx
         """index of the image, None if not from list"""
+        self.rotation: float = rotation % 360
+        """rotation of the image in degrees (CCW)"""
 
     def __str__(self) -> str:
         return self.name
 
+    def get_center(self) -> tuple[float, float]:
+        """Return the center of the image in display ratio (1.0 - 0.0)."""
+        cx, cy = self.center
+        dx, dy = self.OFFSET
+        return (cx + dx, cy + dy)
+
 
 class ScreenTouch:
-    """A touch point to display on the active area in normalized coordinates
-    (area ratio)."""
+    """A touch point to display in display ratio (1.0 - 0.0)."""
 
-    OFFSET: tuple[int, int] = (0, 0)
-    """touches offset (dx, dy) in pixels"""
+    OFFSET: tuple[float, float] = (0, 0)
+    """touches offset (dx, dy) in display ratio (1.0 - 0.0)"""
     CROSS: tuple[int, int] = (40, 5)
     """(size, thickness) of the cross in pixels"""
 
@@ -245,6 +252,12 @@ class ScreenTouch:
         """center of touch (cx, cy) in display ratio (1.0 - 0.0)"""
         self.surface = surface
         """pygame.Surface of the touch to display"""
+
+    def get_center(self) -> tuple[float, float]:
+        """Return the center of the touch in display ratio (1.0 - 0.0)."""
+        cx, cy = self.center
+        dx, dy = self.OFFSET
+        return (cx + dx, cy + dy)
 
 
 class ScreenDisplayManager:
@@ -297,13 +310,13 @@ class ScreenDisplayManager:
 
     # Utilities
     # ----------------
-    def area_ratio_to_px(self, point: tuple[float, float]):
-        """Convert a value to pixels from area ratio."""
+    def display_ratio_to_px(self, point: tuple[float, float]):
+        """Convert a value to pixels from display ratio."""
         px_point = self.display_area.area_ratio_to_px(point)
         return px_point
 
-    def px_to_area_ratio(self, point: tuple[int, int]):
-        """Convert a value to area ratio from pixels."""
+    def px_to_display_ratio(self, point: tuple[int, int]):
+        """Convert a value to display ratio from pixels."""
         ratio_point = self.display_area.px_to_area_ratio(point)
         return ratio_point
 
@@ -380,7 +393,7 @@ class ScreenDisplayManager:
     # Touches
     # ----------------
     def add_touch(self, touch_id: Any, point: tuple[float, float]):
-        """Register an active touch point (area ratio)."""
+        """Register an active touch point (display ratio)."""
         ts, tt = ScreenTouch.CROSS
         s = pygame.Surface((ts, ts), pygame.SRCALPHA)
         pygame.draw.line(s, (255, 0, 0), (0, 0), (ts, ts), tt)
@@ -398,13 +411,31 @@ class ScreenDisplayManager:
         Screentouch."""
         images_touched = []
         for img in self.images:
-            sw, sh = self.px_to_area_ratio(img.surface.get_size())
-            x_min = img.center[0] - sw / 2
-            x_max = img.center[0] + sw / 2
-            y_min = img.center[1] - sh / 2
-            y_max = img.center[1] + sh / 2
-            if (x_min <= touch.center[0] <= x_max) and (
-                y_min <= touch.center[1] <= y_max
+            cx, cy = img.get_center()
+            tx, ty = touch.get_center()
+
+            # Translation (origin = image center)
+            tx = tx - cx
+            ty = ty - cy
+
+            # Conversion (area ratio -> pixels)
+            tx_px, ty_px = self.display_ratio_to_px((tx, ty))
+
+            # Rotation
+            theta = math.radians(img.rotation)
+            cos_t = math.cos(theta)
+            sin_t = math.sin(theta)
+            tx_rot_px = int(round(tx_px * cos_t - ty_px * sin_t))
+            ty_rot_px = int(round(tx_px * sin_t + ty_px * cos_t))
+
+            sw_px, sh_px = img.surface.get_size()
+            x_min_px = -round(sw_px / 2) - 1
+            x_max_px = round(sw_px / 2) + 1
+            y_min_px = -round(sh_px / 2) - 1
+            y_max_px = round(sh_px / 2) + 1
+
+            if (x_min_px <= tx_rot_px <= x_max_px) and (
+                y_min_px <= ty_rot_px <= y_max_px
             ):
                 images_touched.append(img)
 
@@ -531,7 +562,7 @@ class ScreenDisplayManager:
         # Top-left: active-area axes
         # ----------------
         axes = self.get_axes_surface(
-            "AREA", min(aw, ah) // 3, (0, 255, 0), font
+            "DISPLAY", min(aw, ah) // 3, (0, 255, 0), font
         )
         tl_x = aw // 4
         tl_y = ah // 4
@@ -616,7 +647,7 @@ class ScreenDisplayManager:
                 labels.append(f"{size_px}")
                 labels.append("pixels")
             else:
-                size_ratio = self.px_to_area_ratio((size_px, size_px))
+                size_ratio = self.px_to_display_ratio((size_px, size_px))
                 labels.append(f"{size_ratio[0]:.2f}")
                 labels.append("x")
                 labels.append(f"{size_ratio[1]:.2f}")
@@ -754,23 +785,23 @@ class ScreenDisplayManager:
         # blit all images
         for img in self.images:
             s = img.surface
-            cx, cy = self.area_ratio_to_px(img.center)
-            x = cx + ScreenImage.OFFSET[0] - s.get_width() // 2
-            y = cy + ScreenImage.OFFSET[1] - s.get_height() // 2
+            s = pygame.transform.rotate(s, img.rotation)
+            cx, cy = self.display_ratio_to_px(img.get_center())
+            x = cx - s.get_width() // 2
+            y = cy - s.get_height() // 2
             area.blit(s, (x, y))
-
 
         # draw calibration and touches if enabled
         if self.show_calibration:
             cali = self.get_calibration()
             area.blit(cali, (0, 0))
-            
+
             # blit all touches
             for touch in self.touches.values():
                 s = touch.surface
-                cx, cy = self.area_ratio_to_px(touch.center)
-                x = cx + ScreenTouch.OFFSET[0] - s.get_width() // 2
-                y = cy + ScreenTouch.OFFSET[1] - s.get_height() // 2
+                cx, cy = self.display_ratio_to_px(touch.get_center())
+                x = cx - s.get_width() // 2
+                y = cy - s.get_height() // 2
                 area.blit(s, (x, y))
 
         # rotate window
@@ -861,16 +892,16 @@ class TouchScreen:
 
     def setImageOffset(
         self,
-        dx: int,
-        dy: int,
+        dx: float,
+        dy: float,
     ) -> None:
-        """Set a global offset for all images in pixels."""
+        """Set a global offset for all images in display ratio."""
         ScreenImage.OFFSET = (dx, dy)
 
     def setTouchOffset(
         self,
-        dx: int,
-        dy: int,
+        dx: float,
+        dy: float,
     ) -> None:
         """Set a global offset for all touches in pixels."""
         ScreenTouch.OFFSET = (dx, dy)
@@ -892,18 +923,20 @@ class TouchScreen:
         px_screen_pos: tuple[int, int],
     ) -> None:
         images_touched = self.manager.hit_test(touch)
+        t_center = touch.get_center()
         if images_touched:
             for image in images_touched:
-                img_center_px = self.manager.area_ratio_to_px(image.center)
+                i_center = image.get_center()
+                i_center_px = self.manager.display_ratio_to_px(i_center)
                 self.send(
                     f"symbol xy touched {image.name} id {image.idx} "
-                    f"at display_ratio: {touch.center[0]:.3f},{touch.center[1]:.3f} "
-                    f"px: {img_center_px[0]},{img_center_px[1]},"
+                    f"at display_ratio: {t_center[0]:.3f},{t_center[1]:.3f} "
+                    f"px: {i_center_px[0]},{i_center_px[1]},"
                     f"{px_screen_pos[0]},{px_screen_pos[1]}"
                 )
         else:
             self.send(
-                f"missed display_ratio: {touch.center[0]:.3f},{touch.center[1]:.3f} "
+                f"missed display_ratio: {t_center[0]:.3f},{t_center[1]:.3f} "
                 f"px: {px_screen_pos[0]},{px_screen_pos[1]}"
             )
 
@@ -1017,8 +1050,8 @@ class TouchScreen:
                 f"setXYImage: index {index:03d} not found"
             )
             return
-        surf = pygame.transform.rotozoom(surf, r, s)
-        image = ScreenImage(surf, (cx, cy), name, index)
+        surf = pygame.transform.rotozoom(surf, 0.0, s)
+        image = ScreenImage(surf, (cx, cy), name, index, r)
         self.manager.add_image(image)
 
     def setXYStripes(
@@ -1067,8 +1100,8 @@ class TouchScreen:
             color1,
             color2,
         )
-        surf = pygame.transform.rotozoom(surf, r, s)
-        image = ScreenImage(surf, (cx, cy), name, None)
+        surf = pygame.transform.rotozoom(surf, 0.0, s)
+        image = ScreenImage(surf, (cx, cy), name, None, r)
         self.manager.add_image(image)
         return surf
 
@@ -1233,7 +1266,9 @@ class TouchScreen:
                 s = 1.0
 
             if "px" in unit:
-                cx, cy = self.manager.px_to_area_ratio((int(c[3]), int(c[4])))
+                cx, cy = self.manager.px_to_display_ratio(
+                    (int(c[3]), int(c[4]))
+                )
             elif "ratio" in unit:
                 cx, cy = float(c[3]), float(c[4])
             else:
@@ -1260,7 +1295,9 @@ class TouchScreen:
 
             unit = c[11]
             if "px" in unit:
-                cx, cy = self.manager.px_to_area_ratio((int(c[2]), int(c[3])))
+                cx, cy = self.manager.px_to_display_ratio(
+                    (int(c[2]), int(c[3]))
+                )
             elif "ratio" in unit:
                 cx, cy = float(c[2]), float(c[3])
             else:
@@ -1304,7 +1341,7 @@ class TouchScreen:
                 return True
 
             if "px" in unit:
-                image.center = self.manager.px_to_area_ratio(
+                image.center = self.manager.px_to_display_ratio(
                     (int(c[2]), int(c[3]))
                 )
             if "ratio" in unit:
@@ -1353,11 +1390,12 @@ class TouchScreen:
             # setImageOffset <dx> <dy> <unit>
             unit = c[3]
             if "px" in unit:
-                self.setImageOffset(int(c[1]), int(c[2]))
-            if "ratio" in unit:
-                dx, dy = self.manager.area_ratio_to_px(
-                    (float(c[1]), float(c[2]))
+                dx, dy = self.manager.px_to_display_ratio(
+                    (int(c[1]), int(c[2]))
                 )
+                self.setImageOffset(dx, dy)
+            if "ratio" in unit:
+                dx, dy = (float(c[1]), float(c[2]))
                 self.setImageOffset(dx, dy)
             return True
 
@@ -1367,7 +1405,7 @@ class TouchScreen:
             if "px" in unit:
                 self.setTouchOffset(int(c[1]), int(c[2]))
             if "ratio" in unit:
-                dx, dy = self.manager.area_ratio_to_px(
+                dx, dy = self.manager.display_ratio_to_px(
                     (float(c[1]), float(c[2]))
                 )
                 self.setTouchOffset(dx, dy)
@@ -1536,19 +1574,19 @@ class TouchScreen:
                     print("V key hit: set random background stripes")
                 elif event.key == pygame.K_RIGHT:
                     dx, dy = ScreenTouch.OFFSET
-                    ScreenTouch.OFFSET = (dx + 10, dy)
+                    ScreenTouch.OFFSET = (dx + 0.1, dy)
                     print("RIGHT key hit: increase touch offset along x")
                 elif event.key == pygame.K_LEFT:
                     dx, dy = ScreenTouch.OFFSET
-                    ScreenTouch.OFFSET = (dx - 10, dy)
+                    ScreenTouch.OFFSET = (dx - 0.1, dy)
                     print("LEFT key hit: decrease touch offset along x")
                 elif event.key == pygame.K_DOWN:
                     dx, dy = ScreenTouch.OFFSET
-                    ScreenTouch.OFFSET = (dx, dy + 10)
+                    ScreenTouch.OFFSET = (dx, dy + 0.1)
                     print("DOWN key hit: increase touch offset along y")
                 elif event.key == pygame.K_UP:
                     dx, dy = ScreenTouch.OFFSET
-                    ScreenTouch.OFFSET = (dx, dy - 10)
+                    ScreenTouch.OFFSET = (dx, dy - 0.1)
                     print("UP key hit: decrease touch offset along y")
                 elif event.key == pygame.K_KP_PLUS:
                     self.setImageSize(ScreenImage.SIZE + 10)
@@ -1603,7 +1641,7 @@ class TouchScreen:
                 )
                 point = self.manager.display_area.screen_to_area(point)
                 touch = self.manager.add_touch(event.finger_id, point)
-                print(f"finger down: add touch {touch.center}")
+                print(f"finger down: add touch {touch.get_center()}")
                 self.check_if_touch_on_image(touch, px_screen)
 
             if event.type == pygame.FINGERUP:
