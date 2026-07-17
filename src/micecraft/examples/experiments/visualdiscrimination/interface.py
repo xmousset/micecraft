@@ -100,25 +100,29 @@ class VisualRoom:
                 bx, by = gx + 1, gy
                 wpx, wpy = bx + 0.4, by - 0.4
                 tsx, tsy = bx + 1.1, by + 0.5
-                gate_wp_angle = 0
+                gate_angle = 0
+                wp_angle = 0
                 ts_angle = 90
             case "left":
                 bx, by = gx - 1, gy
                 wpx, wpy = bx + 0.4, by - 0.4
                 tsx, tsy = bx - 0.1, by + 0.5
-                gate_wp_angle = 0
+                gate_angle = 0
+                wp_angle = 0
                 ts_angle = -90
             case "top":
                 bx, by = gx, gy - 1
                 wpx, wpy = bx - 0.4, by
                 tsx, tsy = bx + 0.5, by - 0.1
-                gate_wp_angle = -90
+                gate_angle = -90
+                wp_angle = -90
                 ts_angle = 0
             case "bottom":
                 bx, by = gx, gy + 1
                 wpx, wpy = bx - 0.4, by
                 tsx, tsy = bx + 0.5, by + 1.1
-                gate_wp_angle = -90
+                gate_angle = -90
+                wp_angle = -90
                 ts_angle = 180
             case _:
                 raise ValueError(
@@ -126,18 +130,18 @@ class VisualRoom:
                     f"{gate_touchscreen_direction!r}"
                 )
 
-        if flip_gate_AB:
-            gate_wp_angle += 180
-        self.gate: WGate = WGate(gx, gy, self.parent)
-        self.gate.setName(name + "_Gate")
-        self.gate.setAngle(gate_wp_angle)
-
         self.block = WBlock(bx, by, self.parent)
         self.block.setName(name + "_Block")
 
+        if flip_gate_AB:
+            gate_angle += 180
+        self.gate: WGate = WGate(gx, gy, self.parent)
+        self.gate.setName(name + "_Gate")
+        self.gate.setAngle(gate_angle)
+
         self.wp: WPump = WPump(wpx, wpy, self.parent)
         self.wp.setName(name + "_WP")
-        self.wp.setAngle(gate_wp_angle)
+        self.wp.setAngle(wp_angle)
 
         self.ts: WTouchScreen = WTouchScreen(tsx, tsy, ts_angle, self.parent)
         self.ts.setName(name + "_TS")
