@@ -88,6 +88,7 @@ class VisualRoom:
         gate_touchscreen_direction: (
             str | Literal["top", "bottom", "left", "right"]
         ) = "right",
+        flip_gate_AB: bool = False,
     ) -> None:
         self.parent = parent
         self.name: str = name
@@ -125,6 +126,8 @@ class VisualRoom:
                     f"{gate_touchscreen_direction!r}"
                 )
 
+        if flip_gate_AB:
+            gate_wp_angle += 180
         self.gate: WGate = WGate(gx, gy, self.parent)
         self.gate.setName(name + "_Gate")
         self.gate.setAngle(gate_wp_angle)
