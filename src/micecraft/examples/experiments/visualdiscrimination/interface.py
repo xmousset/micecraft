@@ -98,25 +98,25 @@ class VisualRoom:
             case "right":
                 bx, by = gx + 1, gy
                 wpx, wpy = bx + 0.4, by - 0.4
-                tsx, tsy = bx + 1, by + 0.5
+                tsx, tsy = bx + 1.1, by + 0.5
                 gate_wp_angle = 0
                 ts_angle = 90
             case "left":
                 bx, by = gx - 1, gy
                 wpx, wpy = bx + 0.4, by - 0.4
-                tsx, tsy = bx, by + 0.5
+                tsx, tsy = bx - 0.1, by + 0.5
                 gate_wp_angle = 0
                 ts_angle = -90
             case "top":
                 bx, by = gx, gy - 1
                 wpx, wpy = bx - 0.4, by
-                tsx, tsy = bx + 0.5, by
+                tsx, tsy = bx + 0.5, by - 0.1
                 gate_wp_angle = -90
                 ts_angle = 0
             case "bottom":
                 bx, by = gx, gy + 1
                 wpx, wpy = bx - 0.4, by
-                tsx, tsy = bx + 0.5, by + 1
+                tsx, tsy = bx + 0.5, by + 1.1
                 gate_wp_angle = -90
                 ts_angle = 180
             case _:
@@ -192,21 +192,24 @@ class VisualDiscriminationInterface(QWidget):
         self.shutting_down = True
         self.experiment.shutdown_experiment()
 
-    def init_house(self, house_size: tuple[int, int] = (1, 1)):
+    def init_house(
+        self,
+        size: tuple[int, int] = (1, 1),
+        pos: tuple[int, int] = (0, 0),
+    ):
         """Create a block widget house at 'block_pos'= [0, 0].
 
         Parameters
         ----------
-        house_size : tuple[int, int], optional
+        size : tuple[int, int], optional
             Define the number of blocks that compose the house (width, height).
             By default (1, 1).
+        pos : tuple[int, int], optional
+            Define the position of the house in the interface (x, y).
+            By default (0, 0).
         """
-        self.house = WBlock(
-            0, 0, self
-        )  # x and y are relative to block size (200)
-        self.house.setSize(
-            self.house.w * house_size[0], self.house.h * house_size[1]
-        )
+        self.house = WBlock(pos[0], pos[1], self)  # relative to block size
+        self.house.setSize(self.house.w * size[0], self.house.h * size[1])
         self.house.setName("Big House")
 
     def init_rooms(self):
@@ -308,7 +311,7 @@ class VisualDiscriminationInterface(QWidget):
 
     def get_pen(self) -> QtGui.QPainter:
         """Get the QPainter object with fixed parameters."""
-        pen = QtGui.QPainter()
+        pen = QtGui.QPainter(self)
         pen.setRenderHint(QtGui.QPainter.RenderHint.Antialiasing)
         pen.setPen(QtGui.QPen(QtGui.QColor(50, 50, 50), 2))
 
@@ -323,7 +326,6 @@ class VisualDiscriminationInterface(QWidget):
         """Draw animal shape and information."""
         super().paintEvent(event)
         painter = self.get_pen()
-        painter.begin(self)
 
         self.update_rfid()
 

@@ -536,9 +536,9 @@ class WTouchScreen(QWidget):
             dot_size,
         )
         text_rect = QRect(
-            alarm_rect.x() + dot_size + 2*alarm_margin,
+            alarm_rect.x() + dot_size + 2 * alarm_margin,
             alarm_rect.y(),
-            alarm_rect.width() - dot_size - 2*alarm_margin,
+            alarm_rect.width() - dot_size - 2 * alarm_margin,
             alarm_rect.height(),
         )
         if isinstance(self.touchscreen, TouchScreen2):
@@ -762,9 +762,9 @@ def test_mode(com_port: str, widget_angle: int = 0):
     widget_ts.bindToTouchScreen(ts)
 
     widget_ts.show()
-    
+
     screen = app.primaryScreen()
-    
+
     if screen is not None:
         screen_size = screen.size()
         widget_ts.move(
@@ -776,5 +776,5 @@ def test_mode(com_port: str, widget_angle: int = 0):
     input()
     ts.crash()
     sys.exit(app.exec())
-    
+
     return widget_ts

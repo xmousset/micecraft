@@ -977,7 +977,7 @@ class Room:
         - turn off touchscreen
         - flush any reward if needed (flush_duration > 0) and log it
         """
-        logging.info(f"[room_state] room: {str(self)} state: CLEAR")
+        logging.debug(f"[room_state] room: {str(self)} state: CLEAR")
         self.ts.enabled = False
         self.wp.lightOff()
         self.ts.clear()
@@ -1422,6 +1422,19 @@ class VisualDiscriminationExperiment:
         if room is None:
             return
 
+        room_side = "UNKNOWN"
+        if room.gate.order == GateOrder.ONLY_ONE_ANIMAL_IN_B:
+            room_side = "B"
+        if room.gate.order == GateOrder.ONLY_ONE_ANIMAL_IN_A:
+            room_side = "A"
+
+        if room_side == "A":
+            home_side = "B"
+        elif room_side == "B":
+            home_side = "A"
+        else:
+            home_side = "UNKNOWN"
+
         # Animal weight
         # ----------------
         if "WEIGHT OK" in event.description:
@@ -1436,8 +1449,7 @@ class VisualDiscriminationExperiment:
         # Animal in
         # ----------------
         if "allowed to cross" in event.description:
-            if "TO SIDE B" in event.description:
-
+            if f"TO SIDE {room_side}" in event.description:
                 read_rfid = self.register_RFID(event.data)
                 if read_rfid is not None:
                     room.set_initial_state(self.animals[read_rfid])
@@ -1455,7 +1467,7 @@ class VisualDiscriminationExperiment:
 
         # Animal out
         # ----------------
-        if "FREE TO GET TO SIDE A" in event.description:
+        if f"FREE TO GET TO SIDE {home_side}" in event.description:
             room.set_exit_state()
             return
 

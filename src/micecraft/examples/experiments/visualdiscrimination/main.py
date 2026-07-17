@@ -1,5 +1,4 @@
 import sys
-import traceback
 
 from PyQt6.QtWidgets import QApplication
 
@@ -7,7 +6,6 @@ from micecraft.devices.gate.Gate import Gate, GateOrder
 from micecraft.devices.waterpump.WaterPump import WaterPump
 from micecraft.devices.touchscreen.TouchScreen2 import TouchScreen2
 from micecraft.devices.touchscreen.inPy.ts_img_manager import TSImage
-
 from micecraft.soft.camera_recorder.CameraRecorder import CameraRecorder
 from micecraft.devices.roomSensor.RoomSensorDigest import RoomSensorDigest
 from micecraft.examples.experiments.visualdiscrimination.experiment import (
@@ -48,12 +46,12 @@ def define_experiment_parameters():
     # ----------------
     Room.ALL = []
 
-    wp_alpha = WaterPump(comPort="COM22")
-    ts_alpha = TouchScreen2(comPort="COM20")
+    wp_alpha = WaterPump(comPort="COM0")
+    ts_alpha = TouchScreen2(comPort="COM0")
     gate_alpha = Gate(
-        COM_Servo="COM36",
-        COM_Arduino="COM30",
-        COM_RFID="COM27",
+        COM_Servo="COM0",
+        COM_Arduino="COM0",
+        COM_RFID="COM0",
         weightFactor=0.6,
         mouseAverageWeight=25,
     )
@@ -71,13 +69,15 @@ def define_experiment_parameters():
 
     # Global recording
     # ----------------
-    cam_recorder = CameraRecorder(
-        deviceNumber=0, bufferDurationS=50, showStream=True
-    )  # for saving videos
+    cam_recorder = None
+    # cam_recorder = CameraRecorder(
+    #     deviceNumber=0, bufferDurationS=50, showStream=True
+    # )  # for saving videos
 
-    sensors = RoomSensorDigest(
-        comPort="COM25", delayS=5 * 60
-    )  # get environment data every 5 minutes
+    sensors = None
+    # sensors = RoomSensorDigest(
+    #     comPort="COM0", delayS=5 * 60
+    # )  # get environment data every 5 minutes
 
     # RETURN
     # ----------------
@@ -97,7 +97,7 @@ def construct_app_visual(interface: VisualDiscriminationInterface):
         gate_touchscreen_direction="right",
     )
 
-    interface.init_house(house_size=(2, 1))
+    interface.init_house(size=(2, 1))
     interface.init_rooms()
 
     interface.resize(1000, 400)
