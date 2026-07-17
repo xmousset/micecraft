@@ -76,7 +76,7 @@ def define_experiment_parameters():
 
     sensors = None
     # sensors = RoomSensorDigest(
-    #     comPort="COM0", delayS=5 * 60
+    #     comPort="COM29", delayS=5 * 60
     # )  # get environment data every 5 minutes
 
     # RETURN
@@ -95,6 +95,7 @@ def construct_app_visual(interface: VisualDiscriminationInterface):
         name=str(room_names[0]),
         gate_pos=(2, 0),
         gate_touchscreen_direction="right",
+        flip_gate_AB=False,
     )
 
     interface.init_house(size=(2, 1))
