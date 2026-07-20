@@ -543,7 +543,7 @@ class Gate(object):
             
         command+=f" *{rfid}*"
         
-        print(f"Sending command to LMT at {ip} for RFID identity presence: {command}" )
+        logging.info(f"Sending command to LMT at {ip} for RFID identity presence: {command}" )
                 
         sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM) # UDP
         sock.sendto(bytes( command  , "utf-8"), (UDP_IP, UDP_PORT))

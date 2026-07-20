@@ -248,7 +248,6 @@ class TouchScreen2:
             self.send(f"transparency {self.transparency}")
 
     def setImageSize(self, imageSize: int | float, unit: str = "px"):
-        self.imageSize = imageSize
         self.send(f"imageSize {imageSize} {unit}")
 
     def setBgColor(self, color: tuple[int, int, int]):

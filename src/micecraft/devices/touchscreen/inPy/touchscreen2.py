@@ -716,31 +716,26 @@ class ScreenDisplayManager:
 
     def set_mouse_mode(self) -> None:
         """Set the display to mouse mode."""
-        # TO MODIFY
-        sw, sh = self.screen.get_size()
-
-        dis_size = (sh / sw, sw / sh / 4)
-        dis_center = (0.125, 0.5)
-        dis_rotation = -90
-        dis_invert_axis = (True, True)
-
-        det_size = (1, 1.1)
-        det_center = (
-            det_size[0] / 2,
-            0.5 + (1 - det_size[1]) / 2,
+        dis_size = (0.75, 0.65)
+        dis_center = (
+            0.5,
+            1 - dis_size[1] / 2,
         )
-        det_rotation = 0
-        det_invert_axis = (True, True)
+
+        det_size = (0.95, 1.3)
+        det_center = (
+            0.5,
+            1 - dis_size[1] / 2 - 0.15,
+        )
+        det_rotation = -90
 
         self.set_mode(
             display_size=dis_size,
             display_center=dis_center,
-            display_rotation=dis_rotation,
-            display_invert_axis=dis_invert_axis,
             detector_size=det_size,
             detector_center=det_center,
             detector_rotation=det_rotation,
-            detector_invert_axis=det_invert_axis,
+            detector_invert_axis=(True, True),
         )
 
     def set_rat_mode(self) -> None:
@@ -748,13 +743,13 @@ class ScreenDisplayManager:
         dis_size = (0.96, 0.82)
         dis_center = (
             dis_size[0] / 2,
-            0.5 + (1 - dis_size[1]) / 2,
+            1 - dis_size[1] / 2,
         )
 
-        det_size = (0.95, 1.4)
+        det_size = (0.95, 1.3)
         det_center = (
             det_size[0] / 2,
-            1.05 - det_size[1] / 2,
+            1 - det_size[1] / 2,
         )
         det_rotation = 180
 

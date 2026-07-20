@@ -1,12 +1,20 @@
 ﻿from typing import Any, Callable
 import math
 
-from PyQt6 import QtWidgets, QtGui
-from PyQt6.QtWidgets import QApplication, QMenu, QWidget
-from PyQt6.QtGui import QPaintEvent, QPainter, QFont, QPen, QColor, QCloseEvent
+from PyQt6.QtWidgets import QApplication, QMenu, QWidget, QInputDialog
+from PyQt6.QtGui import (
+    QAction,
+    QCloseEvent,
+    QColor,
+    QFont,
+    QFontMetrics,
+    QPainter,
+    QPaintEvent,
+    QPen,
+)
 from PyQt6.QtCore import (
-    QLineF,
     QLine,
+    QLineF,
     QMargins,
     QPointF,
     QRect,
@@ -334,7 +342,7 @@ class WTouchScreen(QWidget):
             mid = (low + high) // 2
             f = QFont(family, mid)
             f.setBold(bold)
-            fm = QtGui.QFontMetrics(f)
+            fm = QFontMetrics(f)
             br = fm.boundingRect(txt)
             if (
                 br.width() <= rect.width() - pad
@@ -556,44 +564,24 @@ class WTouchScreen(QWidget):
     def contextMenuEvent(self, event):  # type: ignore[override]
         menu = QMenu(self)
 
-        actions: dict[QtGui.QAction, tuple[Callable, tuple]] = {}
+        actions: dict[QAction, tuple[Callable, tuple]] = {}
 
-        title = QtGui.QAction("TouchScreen Actions", menu)
+        # title
+        # ----------------
+        title = QAction("TouchScreen Actions", menu)
         title.setDisabled(True)
         menu.addAction(title)
         menu.addSeparator()
 
+        # display and clear images
+        # ----------------
         display_left = QMenu("Display on left", menu)
         menu.addMenu(display_left)
         display_right = QMenu("Display on right", menu)
         menu.addMenu(display_right)
-        action = QtGui.QAction("Clear Images", menu)
+        action = QAction("Clear Images", menu)
         menu.addAction(action)
         actions[action] = (self.clear_all_images, ())
-
-        mode_menu = QMenu("Set mode", menu)
-        menu.addMenu(mode_menu)
-        normal_mode = QtGui.QAction("Normal", menu)
-        mode_menu.addAction(normal_mode)
-        actions[normal_mode] = (self.set_mode, ("normal",))
-        mouse_mode = QtGui.QAction("Mouse", menu)
-        mode_menu.addAction(mouse_mode)
-        actions[mouse_mode] = (self.set_mode, ("mouse",))
-        rat_mode = QtGui.QAction("Rat", menu)
-        mode_menu.addAction(rat_mode)
-        actions[rat_mode] = (self.set_mode, ("rat",))
-
-        user_touch = QMenu("Touch image", menu)
-        menu.addMenu(user_touch)
-        for img in self.get_current_display():
-            name = TSImage.get_name_from_id(img["id"])
-            action = QtGui.QAction(name, user_touch)
-            user_touch.addAction(action)
-            actions[action] = (self.user_touch, (img,))
-
-        action = QtGui.QAction("Toggle Calibration", menu)
-        menu.addAction(action)
-        actions[action] = (self.toggle_calibration, ())
 
         other_images_left = QMenu("Other Images", display_left)
         display_left.addMenu(other_images_left)
@@ -609,26 +597,60 @@ class WTouchScreen(QWidget):
             TSImage.FALSE,
         ]
         for member in TSImage._member_map_.values():
-            # use the member object to check membership, but pass the integer
-            # value to callbacks so callers always receive a plain int
             name = str(member)
             id = member.value
             if member in main_images:
-                action = QtGui.QAction(name, display_left)
+                action = QAction(name, display_left)
                 display_left.addAction(action)
                 actions[action] = (self.display_image, (id, 0.25))
 
-                action = QtGui.QAction(name, display_right)
+                action = QAction(name, display_right)
                 display_right.addAction(action)
                 actions[action] = (self.display_image, (id, 0.75))
             else:
-                action = QtGui.QAction(name, other_images_left)
+                action = QAction(name, other_images_left)
                 other_images_left.addAction(action)
                 actions[action] = (self.display_image, (id, 0.25))
 
-                action = QtGui.QAction(name, other_images_right)
+                action = QAction(name, other_images_right)
                 other_images_right.addAction(action)
                 actions[action] = (self.display_image, (id, 0.75))
+
+        # mode (mouse, rat, normal)
+        # ----------------
+        mode_menu = QMenu("Set mode", menu)
+        menu.addMenu(mode_menu)
+        normal_mode = QAction("Normal", menu)
+        mode_menu.addAction(normal_mode)
+        actions[normal_mode] = (self.set_mode, ("normal",))
+        mouse_mode = QAction("Mouse", menu)
+        mode_menu.addAction(mouse_mode)
+        actions[mouse_mode] = (self.set_mode, ("mouse",))
+        rat_mode = QAction("Rat", menu)
+        mode_menu.addAction(rat_mode)
+        actions[rat_mode] = (self.set_mode, ("rat",))
+
+        # touch a displayed image
+        # ----------------
+        user_touch = QMenu("Touch image", menu)
+        menu.addMenu(user_touch)
+        for img in self.get_current_display():
+            name = TSImage.get_name_from_id(img["id"])
+            action = QAction(name, user_touch)
+            user_touch.addAction(action)
+            actions[action] = (self.user_touch, (img,))
+
+        # calibration
+        # ----------------
+        action = QAction("Toggle Calibration", menu)
+        menu.addAction(action)
+        actions[action] = (self.toggle_calibration, ())
+
+        # image size
+        # ----------------
+        action = QAction("Set Image Size", menu)
+        menu.addAction(action)
+        actions[action] = (self.ask_image_size, ())
 
         chosen = menu.exec(self.mapToGlobal(event.pos()))
 
@@ -691,6 +713,51 @@ class WTouchScreen(QWidget):
             self.touchscreen.setMouseMode()
         if mode == "rat":
             self.touchscreen.setRatMode()
+
+    def set_image_size(self, size: int | float, unit: str = "px"):
+        """Set the size of the images on the touchscreen device."""
+        if not isinstance(self.touchscreen, TouchScreen2):
+            return
+        self.touchscreen.setImageSize(size, unit)
+
+    def ask_image_size(self):
+        """Ask the user for the size of the images on the touchscreen device."""
+        if not isinstance(self.touchscreen, TouchScreen2):
+            return
+
+        # ask unit (px or ratio)
+        unit_item, ok = QInputDialog.getItem(
+            self, "Image Size Unit", "Unit:", ["px", "ratio"], 0, False
+        )
+        if not ok:
+            return
+        unit = str(unit_item)
+
+        # ask size (int or float)
+        if unit == "px":
+            size, ok_size = QInputDialog.getInt(
+                self,
+                "Image Size",
+                f"Size ({unit}):",
+                256,
+                1,
+                2000,
+            )
+        else:
+            size, ok_size = QInputDialog.getDouble(
+                self,
+                "Image Size",
+                f"Size ({unit}):",
+                0.5,
+                0.0,
+                1.0,
+                3,
+            )
+
+        if not ok_size:
+            return
+
+        self.set_image_size(size, unit)
 
     def user_touch(self, img: dict[str, Any]):
         if self.touchscreen is None:
